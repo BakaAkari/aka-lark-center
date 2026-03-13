@@ -1,0 +1,65 @@
+{
+  "name": "koishi-plugin-aka-lark-center",
+  "version": "0.1.0",
+  "description": "Koishi gateway for Lark/Feishu OpenAPI with chat tools and raw API access.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BakaAkari/aka-lark-center.git"
+  },
+  "homepage": "https://github.com/BakaAkari/aka-lark-center#readme",
+  "bugs": {
+    "url": "https://github.com/BakaAkari/aka-lark-center/issues"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "peerDependencies": {
+    "koishi": "^4.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "koishi": "^4.18.0",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --sourcemap",
+    "clean": "rimraf dist",
+    "prepublishOnly": "pnpm run clean && pnpm run build",
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "koishi",
+    "koishi-plugin",
+    "lark",
+    "feishu",
+    "openapi",
+    "bot"
+  ],
+  "koishi": {
+    "description": {
+      "en": "Use Lark/Feishu OpenAPI from Koishi, including messaging and raw API calls.",
+      "zh": "在 Koishi 中调用飞书/Lark OpenAPI，支持发消息、列会话和原始 API 调用。"
+    },
+    "category": "tool",
+    "locales": [
+      "zh",
+      "en"
+    ]
+  }
+}
