@@ -1,6 +1,6 @@
 {
   "name": "koishi-plugin-aka-lark-center",
-  "version": "0.1.0",
+  "version": "0.1.17",
   "description": "Koishi gateway for Lark/Feishu OpenAPI with chat tools and raw API access.",
   "license": "MIT",
   "repository": {
@@ -12,7 +12,7 @@
     "url": "https://github.com/BakaAkari/aka-lark-center/issues"
   },
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/index.cjs",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -21,8 +21,11 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+      "require": "./dist/index.cjs",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
   },
   "peerDependencies": {
     "koishi": "^4.18.0"
@@ -35,7 +38,7 @@
     "typescript": "^5.9.2"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --sourcemap",
+    "build": "tsup src/index.ts --format esm,cjs --dts --sourcemap",
     "clean": "rimraf dist",
     "prepublishOnly": "pnpm run clean && pnpm run build",
     "typecheck": "tsc --project tsconfig.json --noEmit"
