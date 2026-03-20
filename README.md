@@ -20,12 +20,14 @@
 
 - 已完成并对外可用：凭证校验、会话列表、消息发送/回复/reaction、文档创建/读取/追加、文档 owner 转移、文本类文件读取、raw OpenAPI 调用
 - 已完成并可供插件复用：`ctx.larkCenter` service、按 domain 拆分的 `docs/drive/messages/files/bitable` 内部结构、稳定工具定义、可选 ChatLuna 工具桥接
-- 已上线但范围有限：`files` 目前只支持文本类文件读取，尚不是完整的 `pdf/docx/xlsx` 抽取管线；消息附件读取也只会在上下文唯一或显式指定来源时生效
+- 已上线但范围有限：`files` 目前只保留文本类文件读取；额外格式和图片 OCR 的扩展因飞书内链、ChatLuna 与 LLM 通信链路问题暂时标记为待定；消息附件读取也只会在上下文唯一或显式指定来源时生效
 - 已预留但未实现：`bitable` 一等 API 仍是骨架，暂不建议把它视为可用能力
+- 当前阶段重点：优先推进资源搜索、知识空间 / wiki 查询、交互层优化，以及飞书项目接入方案设计
 
 更细的开发现状和阶段记录见：
 
 - [`docs/lark-center-doc/current-status.md`](../../docs/lark-center-doc/current-status.md)
+- [`docs/lark-center-doc/phase-plan.md`](../../docs/lark-center-doc/phase-plan.md)
 
 ## Features
 
@@ -322,8 +324,10 @@ lark.tool.list
 - 如果在飞书/Lark 用户会话中通过 ChatLuna 调用 `lark_doc_create`，并且插件开启了自动 owner 转交配置，创建后的文档会自动把 owner 转给当前请求者。
 - 如果后续还要兼容非 ChatLuna 的 LLM 插件，优先复用 `ctx.larkCenter` 和工具定义，不要把飞书核心能力绑死在某一个 LLM 生态上。
 - `files v1` 当前只支持 UTF-8 文本类文件读取，不等同于完整的 `pdf/docx/xlsx` 抽取管线。
+- 文件额外格式支持和图片 OCR 目前已降级为待定事项，恢复推进前需要先理清飞书内链与 ChatLuna / LLM 通信链路的问题。
 - 消息附件读取默认不会跨历史自由搜索文件，只会读取当前消息或引用消息里能明确定位到的附件。
 - `bitable` 仍在骨架阶段，建议继续通过 roadmap 和后续实现推进，不要在生产逻辑里默认依赖它。
+- 当前更值得优先投入的方向是搜索、知识空间 / wiki 查询、交互层优化，以及飞书项目接入前的方案收敛。
 
 ## Scripts
 
