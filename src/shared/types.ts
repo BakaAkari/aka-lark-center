@@ -328,8 +328,39 @@ export interface LarkReadFileContentParams {
   mimeType?: string
 }
 
+export interface LarkReadMessageAttachmentParams {
+  messageId: string
+  fileKey: string
+  fileName?: string
+  mimeType?: string
+}
+
+export type LarkSessionAttachmentSource = 'current' | 'quote'
+export type LarkSessionAttachmentTarget = 'auto' | LarkSessionAttachmentSource
+
+export interface LarkReadSessionAttachmentParams {
+  session?: SessionLike
+  target?: LarkSessionAttachmentTarget
+  fileName?: string
+  mimeType?: string
+}
+
 export interface LarkReadFileContentResult {
   fileToken: string
+  fileName?: string
+  mimeType?: string
+  extension?: string
+  sizeBytes?: number
+  title?: string
+  url?: string
+  text: string
+  raw?: unknown
+}
+
+export interface LarkReadMessageAttachmentResult {
+  messageId: string
+  fileKey: string
+  contextSource?: LarkSessionAttachmentSource
   fileName?: string
   mimeType?: string
   extension?: string

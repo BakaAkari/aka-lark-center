@@ -11,6 +11,8 @@ import type {
   CreateDocumentPresentation,
   PingPresentation,
   ReadDocumentContentPresentation,
+  ReadFileContentPresentation,
+  ReadMessageAttachmentPresentation,
   ReplyMessagePresentation,
   SendMessagePresentation,
   TransferDocumentOwnershipPresentation,
@@ -124,6 +126,56 @@ export function formatReadDocumentContentResult(result: ReadDocumentContentPrese
   ].filter(Boolean).join('\n')
 
   const content = result.content || '(文档当前为空)'
+  const text = `${header}\n\n${content}`
+  if (text.length <= output.maxResponseLength) {
+    return text
+  }
+
+  const reserved = header.length + '\n\n...\n'.length
+  const truncatedContent = content.slice(0, Math.max(output.maxResponseLength - reserved, 0))
+  return `${header}\n\n${truncatedContent}\n...`
+}
+
+export function formatReadFileContentResult(result: ReadFileContentPresentation, output: LarkOutputPreferences) {
+  const titleLine = result.title && result.title !== result.fileName
+    ? `title: ${result.title}`
+    : ''
+
+  const header = [
+    '文件内容读取成功。',
+    `file_token: ${result.fileToken}`,
+    result.fileName ? `file_name: ${result.fileName}` : '',
+    titleLine,
+    result.mimeType ? `mime_type: ${result.mimeType}` : '',
+    result.extension ? `extension: ${result.extension}` : '',
+    typeof result.sizeBytes === 'number' ? `size_bytes: ${result.sizeBytes}` : '',
+    result.url ? `url: ${result.url}` : '',
+  ].filter(Boolean).join('\n')
+
+  const content = result.text || '(文件当前为空)'
+  const text = `${header}\n\n${content}`
+  if (text.length <= output.maxResponseLength) {
+    return text
+  }
+
+  const reserved = header.length + '\n\n...\n'.length
+  const truncatedContent = content.slice(0, Math.max(output.maxResponseLength - reserved, 0))
+  return `${header}\n\n${truncatedContent}\n...`
+}
+
+export function formatReadMessageAttachmentResult(result: ReadMessageAttachmentPresentation, output: LarkOutputPreferences) {
+  const header = [
+    '消息附件内容读取成功。',
+    `message_id: ${result.messageId}`,
+    `file_key: ${result.fileKey}`,
+    result.contextSource ? `source: ${result.contextSource}` : '',
+    result.fileName ? `file_name: ${result.fileName}` : '',
+    result.mimeType ? `mime_type: ${result.mimeType}` : '',
+    result.extension ? `extension: ${result.extension}` : '',
+    typeof result.sizeBytes === 'number' ? `size_bytes: ${result.sizeBytes}` : '',
+  ].filter(Boolean).join('\n')
+
+  const content = result.text || '(附件当前为空)'
   const text = `${header}\n\n${content}`
   if (text.length <= output.maxResponseLength) {
     return text

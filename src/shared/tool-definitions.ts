@@ -93,6 +93,54 @@ export const LARK_TOOL_DEFINITIONS: LarkToolDefinition[] = [
     },
   },
   {
+    name: 'lark_file_read_content',
+    description: 'Read the extracted text content of a Lark drive file.',
+    usage: 'Use this when the user wants to inspect an uploaded text-like file from Feishu/Lark. This v1 capability currently supports text-like files only, such as txt, md, json, csv, ts, js, and other UTF-8 text content.',
+    riskLevel: 'low',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        fileToken: {
+          type: 'string',
+          description: 'Target file token.',
+        },
+        fileName: {
+          type: 'string',
+          description: 'Optional file name used to help infer the extension.',
+        },
+        mimeType: {
+          type: 'string',
+          description: 'Optional MIME type used to help infer whether the file is text-like.',
+        },
+      },
+      required: ['fileToken'],
+    },
+  },
+  {
+    name: 'lark_context_file_read',
+    description: 'Read a file attachment from the current message context or quoted message context.',
+    usage: 'Use this when the user says things like "read this file" or replies to a file message. The tool inspects the current session context and only auto-selects the file when there is exactly one attachment candidate. If both current and quoted messages contain files, set source explicitly to current or quote.',
+    riskLevel: 'low',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        source: {
+          type: 'string',
+          description: 'Which message context to inspect.',
+          enum: ['auto', 'current', 'quote'],
+        },
+        fileName: {
+          type: 'string',
+          description: 'Optional file name hint for type detection.',
+        },
+        mimeType: {
+          type: 'string',
+          description: 'Optional MIME type hint for type detection.',
+        },
+      },
+    },
+  },
+  {
     name: 'lark_list_chats',
     description: 'List chats and groups the current Lark app can access.',
     usage: 'Use this before sending a message when you need to discover a target chat_id.',

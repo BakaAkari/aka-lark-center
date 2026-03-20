@@ -7,6 +7,8 @@ import type {
   LarkListChatsResult,
   LarkPingResult,
   LarkReadDocumentContentResult,
+  LarkReadFileContentResult,
+  LarkReadMessageAttachmentResult,
   LarkReplyMessageResult,
   LarkSendMessageResult,
   LarkTransferDocumentOwnershipResult,
@@ -55,6 +57,30 @@ export interface ReadDocumentContentPresentation {
   title?: string
   url?: string
   content: string
+}
+
+export interface ReadFileContentPresentation {
+  ok: true
+  fileToken: string
+  fileName?: string
+  title?: string
+  url?: string
+  mimeType?: string
+  extension?: string
+  sizeBytes?: number
+  text: string
+}
+
+export interface ReadMessageAttachmentPresentation {
+  ok: true
+  messageId: string
+  fileKey: string
+  contextSource?: LarkReadMessageAttachmentResult['contextSource']
+  fileName?: string
+  mimeType?: string
+  extension?: string
+  sizeBytes?: number
+  text: string
 }
 
 export interface SendMessagePresentation {
@@ -139,6 +165,38 @@ export function presentReadDocumentContentResult(
     title: result.title,
     url: result.url,
     content: result.content,
+  }
+}
+
+export function presentReadFileContentResult(
+  result: LarkReadFileContentResult,
+): ReadFileContentPresentation {
+  return {
+    ok: true,
+    fileToken: result.fileToken,
+    fileName: result.fileName,
+    title: result.title,
+    url: result.url,
+    mimeType: result.mimeType,
+    extension: result.extension,
+    sizeBytes: result.sizeBytes,
+    text: result.text,
+  }
+}
+
+export function presentReadMessageAttachmentResult(
+  result: LarkReadMessageAttachmentResult,
+): ReadMessageAttachmentPresentation {
+  return {
+    ok: true,
+    messageId: result.messageId,
+    fileKey: result.fileKey,
+    contextSource: result.contextSource,
+    fileName: result.fileName,
+    mimeType: result.mimeType,
+    extension: result.extension,
+    sizeBytes: result.sizeBytes,
+    text: result.text,
   }
 }
 

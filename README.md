@@ -14,10 +14,26 @@
 
 也就是说，`aka-lark-center` 的目标不是替代 adapter，而是给所有 LLM 插件提供一套统一的飞书工具接口。
 
+## Current Status
+
+当前源码状态可以概括为：
+
+- 已完成并对外可用：凭证校验、会话列表、消息发送/回复/reaction、文档创建/读取/追加、文档 owner 转移、文本类文件读取、raw OpenAPI 调用
+- 已完成并可供插件复用：`ctx.larkCenter` service、按 domain 拆分的 `docs/drive/messages/files/bitable` 内部结构、稳定工具定义、可选 ChatLuna 工具桥接
+- 已上线但范围有限：`files` 目前只支持文本类文件读取，尚不是完整的 `pdf/docx/xlsx` 抽取管线；消息附件读取也只会在上下文唯一或显式指定来源时生效
+- 已预留但未实现：`bitable` 一等 API 仍是骨架，暂不建议把它视为可用能力
+
+更细的开发现状和阶段记录见：
+
+- [`docs/lark-center-doc/current-status.md`](../../docs/lark-center-doc/current-status.md)
+
 ## Features
 
 - 自动获取并缓存 `tenant_access_token`
 - 支持创建、读取飞书文档并追加内容
+- 支持创建后转移文档 owner，或单独执行 owner 转移
+- 支持按 `fileToken` 读取飞书文本类文件内容
+- 支持按“当前消息 / 引用消息”的上下文读取飞书文件附件内容
 - 支持 `chat_id / open_id / user_id / union_id / email` 发送消息
 - 支持回复指定消息和添加消息表情回复
 - 内置 `raw` 命令，可调用任意已授权的飞书 OpenAPI
@@ -25,6 +41,7 @@
 - 提供 `ctx.larkCenter` service，供其他插件直接调用
 - 导出稳定的工具定义元数据，方便桥接到 LLM tool 系统
 - 支持通过总开关控制 ChatLuna 工具注册与卸载
+- 已内置文件读取域，可在 service 层下载并读取文本类文件
 
 ## Config
 
@@ -34,10 +51,13 @@
 - `timeout`: 请求超时，默认 `30000`
 - `tokenRefreshBufferSeconds`: 提前刷新 token 的秒数，默认 `120`
 - `commandName`: 主命令名，默认 `lark`
-- `minAuthority`: 最小 authority，默认 `4`
-- `allowedUsers`: 额外允许的用户列表，支持 `userId` 或 `platform:userId`
 - `defaultReceiveIdType`: 默认消息目标类型，默认 `chat_id`
 - `maxResponseLength`: 命令输出最大长度，默认 `4000`
+- `autoTransferOwnershipToRequester`: 创建文档后是否自动把 owner 转给当前飞书用户，默认 `false`
+- `retainedBotPermissionAfterOwnershipTransfer`: 转移 owner 后保留给 bot 的权限，默认 `edit`
+- `transferOwnershipStayPut`: 转移 owner 后是否保留在原位置，默认 `false`
+- `minAuthority`: 最小 authority，默认 `4`
+- `allowedUsers`: 额外允许的用户列表，支持 `userId` 或 `platform:userId`
 - `logApiFailures`: 是否输出 OpenAPI 失败日志，默认 `true`
 - `chatlunaEnabled`: 是否启用内置 ChatLuna 工具桥接，默认 `false`
 
@@ -47,8 +67,11 @@
 lark.ping
 lark.chat.list
 lark.doc.create <title> [content]
+lark.doc.transfer-owner <documentId> [ownerOpenId]
 lark.doc.read <documentId>
 lark.doc.append <documentId> <content>
+lark.file.read <fileToken>
+lark.file.read-context [source]
 lark.message.send <receiveId> <content>
 lark.message.reply <messageId> <content>
 lark.message.reaction.add <messageId> <emojiType>
@@ -60,19 +83,42 @@ lark.tool.list
 
 插件会向 Koishi Context 暴露 `ctx.larkCenter`。
 
-目前已经稳定下来的基础方法有：
+目前 service 同时提供 domain 对象和兼容性的扁平方法。
+
+domain 对象：
+
+- `ctx.larkCenter.docs`
+- `ctx.larkCenter.drive`
+- `ctx.larkCenter.messages`
+- `ctx.larkCenter.files`
+- `ctx.larkCenter.bitable`
+
+常用扁平方法：
 
 - `ctx.larkCenter.ping()`
 - `ctx.larkCenter.listChats({ pageSize, pageToken })`
-- `ctx.larkCenter.createDocument({ title, folderToken, content, contentType })`
+- `ctx.larkCenter.createDocument({ title, folderToken, content, contentType, ownerOpenId, transferOwnership })`
+- `ctx.larkCenter.transferDocumentOwnership({ documentId, ownerOpenId, retainedBotPermission, stayPut })`
 - `ctx.larkCenter.readDocumentContent({ documentId })`
 - `ctx.larkCenter.appendDocumentContent({ documentId, content, contentType, parentBlockId, index })`
+- `ctx.larkCenter.readFileContent({ fileToken, fileName, mimeType })`
+- `ctx.larkCenter.readMessageAttachment({ messageId, fileKey, fileName, mimeType })`
+- `ctx.larkCenter.readSessionAttachment({ session, target, fileName, mimeType })`
 - `ctx.larkCenter.sendMessage({ receiveId, receiveIdType, messageType, content, json })`
 - `ctx.larkCenter.replyMessage({ messageId, content, messageType, json, replyInThread })`
 - `ctx.larkCenter.addMessageReaction({ messageId, emojiType })`
 - `ctx.larkCenter.rawRequest({ method, path, payload, json })`
+- `ctx.larkCenter.getDriveMeta({ token, type })`
+- `ctx.larkCenter.batchGetDriveMetas({ resources })`
+- `ctx.larkCenter.getCapabilities()`
 - `ctx.larkCenter.getToolDefinitions()`
 - `ctx.larkCenter.getPermissionError({ userId, platform, authority })`
+
+当前还有一个“已挂到 service、但不算稳定公开能力”的域：
+
+- `ctx.larkCenter.queryBitableRecords(...)`
+
+其中 `readFileContent()` 目前只支持文本类文件；`queryBitableRecords()` 目前会直接报未实现。
 
 示例：
 
@@ -91,6 +137,8 @@ await ctx.larkCenter.sendMessage({
 - `lark_doc_create`
 - `lark_doc_read_content`
 - `lark_doc_append_content`
+- `lark_file_read_content`
+- `lark_context_file_read`
 - `lark_list_chats`
 - `lark_send_message`
 - `lark_message_reply`
@@ -109,9 +157,11 @@ await ctx.larkCenter.sendMessage({
 
 - 默认给 LLM 暴露 `lark_list_chats` 和 `lark_send_message`
 - 文档场景下优先使用 `lark_doc_create`、`lark_doc_read_content` 和 `lark_doc_append_content`
+- 文件阅读场景下使用 `lark_file_read_content`
+- 如果用户说“读这个文件”或回复了一条文件消息，优先使用 `lark_context_file_read`
 - 对聊天交互增强，优先使用 `lark_message_reply` 和 `lark_message_add_reaction`
 - `lark_raw_api_request` 只在高级场景开放
-- 文档、知识库、Bitable、emoji、reaction 之类能力，后续逐步补成专用工具，不建议长期只靠 raw API
+- `transfer-owner` 和 `bitable` 相关能力目前还没有单独的 bridge tool 定义
 
 ## Built-in ChatLuna Bridge
 
@@ -121,6 +171,8 @@ await ctx.larkCenter.sendMessage({
 - `lark_doc_create`
 - `lark_doc_read_content`
 - `lark_doc_append_content`
+- `lark_file_read_content`
+- `lark_context_file_read`
 - `lark_send_message`
 - `lark_message_reply`
 - `lark_message_add_reaction`
@@ -133,6 +185,7 @@ await ctx.larkCenter.sendMessage({
 - 这里不需要给 `aka-lark-center` 新增 npm 依赖。
 - 但运行环境里仍然需要已经安装并启用 ChatLuna，否则只会记录警告，不会影响插件主体工作。
 - 这套桥接目前是内置的总开关控制，不需要额外新建一个插件包。
+- 当前桥接注册的是文档/文件/消息/raw 相关工具，不包含 `transfer-owner` 或 `bitable` 专用工具。
 
 ## Commands Usage
 
@@ -164,7 +217,17 @@ lark.message.send -r open_id ou_xxx hello
 ```text
 lark.doc.create 工作记录
 lark.doc.create -c markdown 周报 # 本周总结
+lark.doc.create -o 工作记录
 ```
+
+### 转移文档 owner
+
+```text
+lark.doc.transfer-owner doccnxxxx
+lark.doc.transfer-owner -p view doccnxxxx ou_xxx
+```
+
+如果不显式传入 `ownerOpenId`，插件会优先尝试从当前飞书/Lark 会话中推导请求者的 `open_id`。
 
 ### 追加文档内容
 
@@ -172,6 +235,34 @@ lark.doc.create -c markdown 周报 # 本周总结
 lark.doc.append doccnxxxx 这是追加的一段文本
 lark.doc.append -c markdown doccnxxxx ## 新章节
 ```
+
+### 读取文件内容
+
+```text
+lark.file.read filecnxxxx
+lark.file.read -n notes.md filecnxxxx
+lark.file.read -m text/plain filecnxxxx
+```
+
+当前 `files v1` 只支持文本类文件读取。`-n` 和 `-m` 主要用于在飞书元数据不足时辅助识别文件类型。
+
+如果你是在飞书里直接回复一条文件消息后执行 `lark.file.read`，插件也会尝试把引用消息里的 `<file .../>` 识别成消息附件，而不是把它误当成 `fileToken`。
+
+### 按消息上下文读取文件附件
+
+```text
+lark.file.read-context
+lark.file.read-context current
+lark.file.read-context quote
+```
+
+这条命令的选择规则是保守的：
+
+- `auto`：只有当当前会话里恰好一个文件附件候选时才自动读取
+- `current`：只读取当前消息本身携带的文件附件
+- `quote`：只读取当前引用消息里的文件附件
+
+如果当前消息和引用消息里都各有一个文件附件，插件不会猜，而是要求显式指定来源。
 
 ### 读取文档内容
 
@@ -230,6 +321,9 @@ lark.tool.list
 - 具体能操作哪些 Lark 内容，取决于你的飞书应用已经开通并审核通过的权限。
 - 如果在飞书/Lark 用户会话中通过 ChatLuna 调用 `lark_doc_create`，并且插件开启了自动 owner 转交配置，创建后的文档会自动把 owner 转给当前请求者。
 - 如果后续还要兼容非 ChatLuna 的 LLM 插件，优先复用 `ctx.larkCenter` 和工具定义，不要把飞书核心能力绑死在某一个 LLM 生态上。
+- `files v1` 当前只支持 UTF-8 文本类文件读取，不等同于完整的 `pdf/docx/xlsx` 抽取管线。
+- 消息附件读取默认不会跨历史自由搜索文件，只会读取当前消息或引用消息里能明确定位到的附件。
+- `bitable` 仍在骨架阶段，建议继续通过 roadmap 和后续实现推进，不要在生产逻辑里默认依赖它。
 
 ## Scripts
 

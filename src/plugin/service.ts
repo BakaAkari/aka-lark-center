@@ -33,6 +33,11 @@ import type {
   LarkRawRequestParams,
   LarkReadDocumentContentParams,
   LarkReadDocumentContentResult,
+  LarkReadFileContentParams,
+  LarkReadFileContentResult,
+  LarkReadMessageAttachmentParams,
+  LarkReadMessageAttachmentResult,
+  LarkReadSessionAttachmentParams,
   LarkReplyMessageParams,
   LarkReplyMessageResult,
   LarkSendMessageParams,
@@ -129,6 +134,18 @@ export class LarkCenter extends Service {
 
   readDocumentContent(params: LarkReadDocumentContentParams): Promise<LarkReadDocumentContentResult> {
     return this.docs.readDocumentContent(params)
+  }
+
+  readFileContent(params: LarkReadFileContentParams): Promise<LarkReadFileContentResult> {
+    return this.files.readContent(params)
+  }
+
+  readMessageAttachment(params: LarkReadMessageAttachmentParams): Promise<LarkReadMessageAttachmentResult> {
+    return this.files.readMessageAttachment(params)
+  }
+
+  readSessionAttachment(params: LarkReadSessionAttachmentParams): Promise<LarkReadMessageAttachmentResult> {
+    return this.files.readSessionAttachment(params)
   }
 
   replyMessage(params: LarkReplyMessageParams): Promise<LarkReplyMessageResult> {

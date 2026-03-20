@@ -1,5 +1,6 @@
 import type { Context } from 'koishi'
-import { createPermissionError } from '../shared/errors.js'
+import { parseAttachmentReferenceInput } from '../domains/files/context.js'
+import { createPermissionError, createValidationError } from '../shared/errors.js'
 import { formatJson, maskToken, normalizeBaseUrl, resolveDriveMemberPermission } from '../shared/utils.js'
 import type { Config, DocumentContentType, ReceiveIdType, SessionLike } from '../shared/types.js'
 import {
@@ -9,6 +10,8 @@ import {
   formatChatListResult,
   formatCreateDocumentResult,
   formatPingResult,
+  formatReadFileContentResult,
+  formatReadMessageAttachmentResult,
   formatReadDocumentContentResult,
   formatReplyMessageResult,
   formatSendMessageResult,
@@ -20,6 +23,8 @@ import {
   presentChatListResult,
   presentCreateDocumentResult,
   presentPingResult,
+  presentReadFileContentResult,
+  presentReadMessageAttachmentResult,
   presentReadDocumentContentResult,
   presentReplyMessageResult,
   presentSendMessageResult,
@@ -176,6 +181,78 @@ export function registerCommands(ctx: Context, center: LarkCenter, config: Confi
         })
 
         return formatReadDocumentContentResult(presentReadDocumentContentResult(result), request.output)
+      } catch (error) {
+        return formatCommandError(error)
+      }
+    })
+
+  ctx.command(`${root}.file.read [fileToken:text]`, '读取飞书文件文本内容')
+    .userFields(['authority'])
+    .option('fileName', '-n <fileName:string> 文件名，用于辅助识别扩展名')
+    .option('mimeType', '-m <mimeType:string> MIME 类型，用于辅助识别内容类型')
+    .action(async ({ session, options }, fileToken) => {
+      const resolvedOptions = (options ?? {}) as { fileName?: string, mimeType?: string }
+      const request = resolveCommandContext(center, config, session as SessionLike)
+      if (!request.permission.granted) return formatCommandError(createPermissionError(request.permission.error ?? '权限不足。'))
+
+      try {
+        const normalizedInput = typeof fileToken === 'string' ? fileToken.trim() : ''
+        if (!normalizedInput) {
+          const result = await center.readSessionAttachment({
+            session: session as SessionLike,
+            target: 'auto',
+            fileName: resolvedOptions.fileName,
+            mimeType: resolvedOptions.mimeType,
+          })
+          return formatReadMessageAttachmentResult(presentReadMessageAttachmentResult(result), request.output)
+        }
+
+        const attachmentReference = parseAttachmentReferenceInput(normalizedInput)
+        if (attachmentReference) {
+          const result = await center.readMessageAttachment({
+            messageId: attachmentReference.messageId,
+            fileKey: attachmentReference.fileKey,
+            fileName: resolvedOptions.fileName,
+            mimeType: resolvedOptions.mimeType,
+          })
+          return formatReadMessageAttachmentResult(presentReadMessageAttachmentResult(result), request.output)
+        }
+
+        const result = await center.readFileContent({
+          fileToken: normalizedInput,
+          fileName: resolvedOptions.fileName,
+          mimeType: resolvedOptions.mimeType,
+        })
+
+        return formatReadFileContentResult(presentReadFileContentResult(result), request.output)
+      } catch (error) {
+        return formatCommandError(error)
+      }
+    })
+
+  ctx.command(`${root}.file.read-context [source:string]`, '读取当前消息或引用消息中的飞书文件附件文本内容')
+    .userFields(['authority'])
+    .option('fileName', '-n <fileName:string> 文件名，用于辅助识别扩展名')
+    .option('mimeType', '-m <mimeType:string> MIME 类型，用于辅助识别内容类型')
+    .action(async ({ session, options }, source) => {
+      const resolvedOptions = (options ?? {}) as { fileName?: string, mimeType?: string }
+      const request = resolveCommandContext(center, config, session as SessionLike)
+      if (!request.permission.granted) return formatCommandError(createPermissionError(request.permission.error ?? '权限不足。'))
+
+      try {
+        const target = typeof source === 'string' && source.trim() ? source.trim() : 'auto'
+        if (!['auto', 'current', 'quote'].includes(target)) {
+          return formatCommandError(createValidationError('source 必须是 auto/current/quote 之一。'))
+        }
+
+        const result = await center.readSessionAttachment({
+          session: session as SessionLike,
+          target: target as 'auto' | 'current' | 'quote',
+          fileName: resolvedOptions.fileName,
+          mimeType: resolvedOptions.mimeType,
+        })
+
+        return formatReadMessageAttachmentResult(presentReadMessageAttachmentResult(result), request.output)
       } catch (error) {
         return formatCommandError(error)
       }

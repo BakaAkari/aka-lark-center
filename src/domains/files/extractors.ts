@@ -64,15 +64,16 @@ export function extractTextLikeContent(
   const normalizedMimeType = normalizeMimeType(mimeType)
   const extension = getFileExtension(fileName)
   const supported = isTextLikeFile(extension, normalizedMimeType)
+  const decodedText = decodeUtf8(bytes)
 
-  if (!supported) {
+  if (!supported && !looksLikeTextContent(bytes, decodedText)) {
     throw createValidationError(
       `暂不支持读取该文件类型。当前仅支持文本类文件，收到 extension=${extension || 'unknown'} mime=${normalizedMimeType || 'unknown'}。`,
       { fileName, mimeType: normalizedMimeType, extension },
     )
   }
 
-  const text = decodeUtf8(bytes)
+  const text = decodedText
   if (!text.trim()) {
     throw createValidationError('文件内容为空，或当前文件不适合按文本方式读取。', {
       fileName,
@@ -83,7 +84,7 @@ export function extractTextLikeContent(
 
   return {
     text,
-    mimeType: normalizedMimeType || inferMimeTypeFromExtension(extension),
+    mimeType: normalizedMimeType || inferMimeTypeFromExtension(extension) || 'text/plain',
     extension,
   }
 }
@@ -125,4 +126,24 @@ function normalizeMimeType(mimeType?: string) {
 function decodeUtf8(bytes: ArrayBuffer) {
   const text = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(bytes))
   return text.replace(/^\uFEFF/, '')
+}
+
+function looksLikeTextContent(bytes: ArrayBuffer, decodedText: string) {
+  const view = new Uint8Array(bytes)
+  if (!view.length) return false
+
+  let zeroByteCount = 0
+  let suspiciousControlCount = 0
+  for (const byte of view) {
+    if (byte === 0) zeroByteCount += 1
+    if (byte < 32 && byte !== 9 && byte !== 10 && byte !== 13) suspiciousControlCount += 1
+  }
+
+  if (zeroByteCount > 0) return false
+  if (suspiciousControlCount / view.length > 0.02) return false
+
+  const replacementCount = (decodedText.match(/\uFFFD/g) || []).length
+  if (replacementCount / Math.max(decodedText.length, 1) > 0.02) return false
+
+  return true
 }

@@ -20,6 +20,8 @@ import {
   presentAppendDocumentContentResult,
   presentChatListResult,
   presentCreateDocumentResult,
+  presentReadFileContentResult,
+  presentReadMessageAttachmentResult,
   presentReadDocumentContentResult,
   presentReplyMessageResult,
   presentSendMessageResult,
@@ -121,6 +123,30 @@ function createChatLunaToolInstance(
               index: typeof input.index === 'number' ? input.index : undefined,
             })
             return formatToolJson(presentAppendDocumentContentResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_file_read_content': {
+            const result = await center.readFileContent({
+              fileToken: expectToolString(input.fileToken, 'fileToken'),
+              fileName: typeof input.fileName === 'string' ? input.fileName : undefined,
+              mimeType: typeof input.mimeType === 'string' ? input.mimeType : undefined,
+            })
+            return formatToolJson(presentReadFileContentResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_context_file_read': {
+            const source = typeof input.source === 'string' && input.source.trim()
+              ? input.source.trim()
+              : 'auto'
+            if (!['auto', 'current', 'quote'].includes(source)) {
+              throw createValidationError('source must be one of auto/current/quote.')
+            }
+
+            const result = await center.readSessionAttachment({
+              session: runtimeConfig?.configurable?.session,
+              target: source as 'auto' | 'current' | 'quote',
+              fileName: typeof input.fileName === 'string' ? input.fileName : undefined,
+              mimeType: typeof input.mimeType === 'string' ? input.mimeType : undefined,
+            })
+            return formatToolJson(presentReadMessageAttachmentResult(result), request.output.maxResponseLength)
           }
           case 'lark_list_chats': {
             const result = await center.listChats({

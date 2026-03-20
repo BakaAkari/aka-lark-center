@@ -6,7 +6,7 @@ export function getCapabilityFlags(config: Config): LarkCapabilityFlags {
     drive: true,
     messages: true,
     bitable: false,
-    files: false,
+    files: true,
     chatlunaBridge: Boolean(config.chatlunaEnabled),
   }
 }
