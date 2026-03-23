@@ -9,6 +9,9 @@ import {
   formatAppendDocumentContentResult,
   formatChatListResult,
   formatCreateDocumentResult,
+  formatDriveFileListResult,
+  formatDriveRootFolderResult,
+  formatKnowledgeLookupResult,
   formatPingResult,
   formatReadFileContentResult,
   formatReadMessageAttachmentResult,
@@ -26,6 +29,9 @@ import {
   presentAppendDocumentContentResult,
   presentChatListResult,
   presentCreateDocumentResult,
+  presentDriveFileListResult,
+  presentDriveRootFolderResult,
+  presentKnowledgeLookupResult,
   presentPingResult,
   presentReadFileContentResult,
   presentReadMessageAttachmentResult,
@@ -45,9 +51,13 @@ export function registerCommands(ctx: Context, center: LarkCenter, config: Confi
   const root = config.commandName.trim() || 'lark'
 
   ctx.command(root, '飞书 / Lark OpenAPI 工具集合')
+  ctx.command(`${root}.system`, '系统与调试命令')
+  ctx.command(`${root}.query`, '查询与检索命令')
   ctx.command(`${root}.read`, '统一的读取类命令')
+  ctx.command(`${root}.write`, '统一的写入类命令')
+  ctx.command(`${root}.message`, '消息交互命令')
 
-  ctx.command(`${root}.ping`, '验证飞书凭证并测试 tenant_access_token')
+  ctx.command(`${root}.system.ping`, '验证飞书凭证并测试 tenant_access_token')
     .userFields(['authority'])
     .action(async ({ session }) => {
       const request = resolveCommandContext(center, config, session as SessionLike)
@@ -63,7 +73,7 @@ export function registerCommands(ctx: Context, center: LarkCenter, config: Confi
       }
     })
 
-  ctx.command(`${root}.chat.list`, '列出机器人可访问的群聊 / 会话')
+  ctx.command(`${root}.query.chat.list`, '列出机器人可访问的群聊 / 会话')
     .userFields(['authority'])
     .option('pageSize', '-s <pageSize:number> 每页数量，默认 20')
     .option('pageToken', '-t <pageToken:string> 分页 token')
@@ -83,7 +93,42 @@ export function registerCommands(ctx: Context, center: LarkCenter, config: Confi
       }
     })
 
-  ctx.command(`${root}.doc.create <title:string> [content:text]`, '创建飞书文档，可选追加初始内容')
+  ctx.command(`${root}.query.drive.root`, '获取当前可访问的云空间根文件夹')
+    .userFields(['authority'])
+    .action(async ({ session }) => {
+      const request = resolveCommandContext(center, config, session as SessionLike)
+      if (!request.permission.granted) return formatCommandError(createPermissionError(request.permission.error ?? '权限不足。'))
+
+      try {
+        const result = await center.getDriveRootFolder()
+        return formatDriveRootFolderResult(presentDriveRootFolderResult(result))
+      } catch (error) {
+        return formatCommandError(error)
+      }
+    })
+
+  ctx.command(`${root}.query.drive.list [folderToken:string]`, '列出文件夹下的资源清单，不传 folderToken 时默认列根目录')
+    .userFields(['authority'])
+    .option('pageSize', '-s <pageSize:number> 每页数量，默认 20')
+    .option('pageToken', '-t <pageToken:string> 分页 token')
+    .action(async ({ session, options }, folderToken) => {
+      const resolvedOptions = (options ?? {}) as { pageSize?: number, pageToken?: string }
+      const request = resolveCommandContext(center, config, session as SessionLike)
+      if (!request.permission.granted) return formatCommandError(createPermissionError(request.permission.error ?? '权限不足。'))
+
+      try {
+        const result = await center.listDriveFiles({
+          folderToken,
+          pageSize: resolvedOptions.pageSize,
+          pageToken: resolvedOptions.pageToken,
+        })
+        return formatDriveFileListResult(presentDriveFileListResult(result), request.output)
+      } catch (error) {
+        return formatCommandError(error)
+      }
+    })
+
+  ctx.command(`${root}.write.doc.create <title:string> [content:text]`, '创建飞书文档，可选追加初始内容')
     .userFields(['authority'])
     .option('folderToken', '-f <folderToken:string> 目标文件夹 token')
     .option('contentType', '-c <contentType:string> 内容类型 plain_text/markdown/html，默认 plain_text')
@@ -125,7 +170,7 @@ export function registerCommands(ctx: Context, center: LarkCenter, config: Confi
       }
     })
 
-  ctx.command(`${root}.doc.transfer-owner <documentId:string> [ownerOpenId:string]`, '把文档 owner 转给指定飞书用户，默认转给当前发起命令的用户')
+  ctx.command(`${root}.write.doc.transfer-owner <documentId:string> [ownerOpenId:string]`, '把文档 owner 转给指定飞书用户，默认转给当前发起命令的用户')
     .userFields(['authority'])
     .option('stayPut', '-s 转移 owner 后保留在原位置')
     .option('botPerm', '-p <botPerm:string> 转移后保留给 bot 的权限 view/edit/full_access')
@@ -153,7 +198,7 @@ export function registerCommands(ctx: Context, center: LarkCenter, config: Confi
       }
     })
 
-  ctx.command(`${root}.doc.append <documentId:string> <content:text>`, '向飞书文档追加内容')
+  ctx.command(`${root}.write.doc.append <documentId:string> <content:text>`, '向飞书文档追加内容')
     .userFields(['authority'])
     .option('contentType', '-c <contentType:string> 内容类型 plain_text/markdown/html，默认 plain_text')
     .option('parentBlockId', '-p <parentBlockId:string> 父 block_id，默认自动定位文档根块')
@@ -252,7 +297,7 @@ export function registerCommands(ctx: Context, center: LarkCenter, config: Confi
       }
     })
 
-  ctx.command(`${root}.search.docs <searchKey:text>`, '按关键词搜索飞书文档资源')
+  ctx.command(`${root}.query.docs.search <searchKey:text>`, '按关键词搜索飞书文档资源')
     .userFields(['authority'])
     .option('count', '-c <count:number> 返回数量，默认 10')
     .option('offset', '-o <offset:number> 搜索偏移，默认 0')
@@ -286,7 +331,47 @@ export function registerCommands(ctx: Context, center: LarkCenter, config: Confi
       }
     })
 
-  ctx.command(`${root}.wiki.space.list`, '列出当前应用可访问的知识空间')
+  ctx.command(`${root}.query.docs.lookup <query:text>`, '按用户需求搜索候选文档，并自动读取前几个可读文档正文')
+    .userFields(['authority'])
+    .option('count', '-c <count:number> 搜索候选数量，默认 10')
+    .option('offset', '-o <offset:number> 搜索偏移，默认 0')
+    .option('docsTypes', '-t <docsTypes:string> 文档类型过滤，逗号分隔')
+    .option('ownerIds', '-u <ownerIds:string> owner_id 过滤，逗号分隔')
+    .option('chatIds', '-g <chatIds:string> chat_id 过滤，逗号分隔')
+    .option('readTopK', '-r <readTopK:number> 自动读取前几个可读文档，默认 1')
+    .option('maxContentLength', '-m <maxContentLength:number> 每个自动读取文档的最大字符数')
+    .action(async ({ session, options }, query) => {
+      const resolvedOptions = (options ?? {}) as {
+        count?: number
+        offset?: number
+        docsTypes?: string
+        ownerIds?: string
+        chatIds?: string
+        readTopK?: number
+        maxContentLength?: number
+      }
+      const request = resolveCommandContext(center, config, session as SessionLike)
+      if (!request.permission.granted) return formatCommandError(createPermissionError(request.permission.error ?? '权限不足。'))
+
+      try {
+        const result = await center.knowledgeLookup({
+          query,
+          count: resolvedOptions.count,
+          offset: resolvedOptions.offset,
+          docsTypes: parseCsvOption(resolvedOptions.docsTypes),
+          ownerIds: parseCsvOption(resolvedOptions.ownerIds),
+          chatIds: parseCsvOption(resolvedOptions.chatIds),
+          readTopK: resolvedOptions.readTopK,
+          maxContentLength: resolvedOptions.maxContentLength,
+        })
+
+        return formatKnowledgeLookupResult(presentKnowledgeLookupResult(result), request.output)
+      } catch (error) {
+        return formatCommandError(error)
+      }
+    })
+
+  ctx.command(`${root}.query.wiki.spaces`, '列出当前应用可访问的知识空间')
     .userFields(['authority'])
     .option('pageSize', '-s <pageSize:number> 每页数量，默认 20')
     .option('pageToken', '-t <pageToken:string> 分页 token')
@@ -306,7 +391,7 @@ export function registerCommands(ctx: Context, center: LarkCenter, config: Confi
       }
     })
 
-  ctx.command(`${root}.wiki.node.get <token:string>`, '获取知识库节点信息')
+  ctx.command(`${root}.query.wiki.node <token:string>`, '获取知识库节点信息')
     .userFields(['authority'])
     .action(async ({ session }, token) => {
       const request = resolveCommandContext(center, config, session as SessionLike)
@@ -320,7 +405,7 @@ export function registerCommands(ctx: Context, center: LarkCenter, config: Confi
       }
     })
 
-  ctx.command(`${root}.wiki.node.list <spaceId:string> [parentNodeToken:string]`, '列出知识空间或父节点下的子节点')
+  ctx.command(`${root}.query.wiki.children <spaceId:string> [parentNodeToken:string]`, '列出知识空间或父节点下的子节点')
     .userFields(['authority'])
     .option('pageSize', '-s <pageSize:number> 每页数量，默认 20')
     .option('pageToken', '-t <pageToken:string> 分页 token')
@@ -410,7 +495,7 @@ export function registerCommands(ctx: Context, center: LarkCenter, config: Confi
       }
     })
 
-  ctx.command(`${root}.raw <method:string> <path:text> [payload:text]`, '调用任意飞书 / Lark OpenAPI')
+  ctx.command(`${root}.system.raw <method:string> <path:text> [payload:text]`, '调用任意飞书 / Lark OpenAPI')
     .userFields(['authority'])
     .option('json', '-j 将 payload 解析为 JSON')
     .action(async ({ session, options }, method, path, payload) => {
@@ -431,7 +516,7 @@ export function registerCommands(ctx: Context, center: LarkCenter, config: Confi
       }
     })
 
-  ctx.command(`${root}.tool.list`, '列出可供其他插件桥接的飞书工具定义')
+  ctx.command(`${root}.system.tool.list`, '列出可供其他插件桥接的飞书工具定义')
     .userFields(['authority'])
     .action(async ({ session }) => {
       const request = resolveCommandContext(center, config, session as SessionLike)

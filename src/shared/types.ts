@@ -233,6 +233,38 @@ export interface LarkSearchDocsResult {
   raw: unknown
 }
 
+export interface LarkKnowledgeLookupParams {
+  query: string
+  count?: number
+  offset?: number
+  docsTypes?: string[]
+  ownerIds?: string[]
+  chatIds?: string[]
+  readTopK?: number
+  maxContentLength?: number
+}
+
+export interface LarkKnowledgeContextItem {
+  docsToken?: string
+  docsType?: string
+  title?: string
+  url?: string
+  content: string
+  truncated: boolean
+  contentLength: number
+  readError?: string
+}
+
+export interface LarkKnowledgeLookupResult {
+  query: string
+  items: LarkSearchDocumentSummary[]
+  contexts: LarkKnowledgeContextItem[]
+  total?: number
+  hasMore: boolean
+  nextOffset?: number
+  raw: unknown
+}
+
 export interface LarkListWikiSpacesParams {
   pageSize?: number
   pageToken?: string
@@ -351,6 +383,39 @@ export interface LarkDriveMetaResult {
   raw?: LarkDriveMeta
 }
 
+export interface LarkDriveRootFolderResult {
+  id?: string
+  token?: string
+  name?: string
+  parentId?: string
+  ownerId?: string
+  raw: unknown
+}
+
+export interface LarkDriveFileSummary {
+  token?: string
+  type?: LarkDriveResourceType
+  name?: string
+  parentToken?: string
+  url?: string
+  ownerId?: string
+  raw?: unknown
+}
+
+export interface LarkListDriveFilesParams {
+  folderToken?: string
+  pageSize?: number
+  pageToken?: string
+}
+
+export interface LarkListDriveFilesResult {
+  folderToken?: string
+  items: LarkDriveFileSummary[]
+  hasMore: boolean
+  nextPageToken?: string
+  raw: unknown
+}
+
 export interface LarkBatchGetDriveMetasParams {
   resources: LarkGetDriveMetaParams[]
 }
@@ -389,6 +454,15 @@ export interface LarkReadDocumentContentResult {
   url?: string
   content: string
   raw: unknown
+}
+
+export interface LarkResolvedDocumentTarget {
+  documentId: string
+  documentType: 'doc' | 'docx'
+  sourceRef: string
+  sourceType: LarkDocumentReferenceKind
+  title?: string
+  url?: string
 }
 
 export interface LarkReadDocumentContextParams {

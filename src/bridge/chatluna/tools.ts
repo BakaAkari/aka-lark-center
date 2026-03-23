@@ -20,12 +20,16 @@ import {
   presentAppendDocumentContentResult,
   presentChatListResult,
   presentCreateDocumentResult,
+  presentDriveFileListResult,
+  presentDriveRootFolderResult,
+  presentKnowledgeLookupResult,
   presentReadFileContentResult,
   presentReadMessageAttachmentResult,
   presentReadDocumentContentResult,
   presentReplyMessageResult,
   presentSearchDocsResult,
   presentSendMessageResult,
+  presentTransferDocumentOwnershipResult,
   presentWikiNodeListResult,
   presentWikiNodeResult,
   presentWikiSpaceListResult,
@@ -87,7 +91,7 @@ function createChatLunaToolInstance(
 
       try {
         switch (definition.name) {
-          case 'lark_doc_create': {
+          case 'lark_write_doc_create': {
             const transferOwnership = typeof input.transferOwnership === 'boolean'
               ? input.transferOwnership
               : request.ownership.autoTransferToRequester
@@ -112,13 +116,32 @@ function createChatLunaToolInstance(
             })
             return formatToolJson(presentCreateDocumentResult(result), request.output.maxResponseLength)
           }
-          case 'lark_doc_read_content': {
+          case 'lark_write_doc_transfer_owner': {
+            const ownerOpenId = typeof input.ownerOpenId === 'string' ? input.ownerOpenId.trim() : ''
+            const fallbackOwnerOpenId = request.requester.ownerOpenId
+            const resolvedOwnerOpenId = ownerOpenId || fallbackOwnerOpenId
+            if (!resolvedOwnerOpenId) {
+              throw createValidationError('ownerOpenId is required when the current tool call is not in a Lark user session.')
+            }
+
+            const result = await center.transferDocumentOwnership({
+              documentId: expectToolString(input.documentId, 'documentId'),
+              ownerOpenId: resolvedOwnerOpenId,
+              retainedBotPermission: resolveDriveMemberPermission(
+                typeof input.retainedBotPermission === 'string' ? input.retainedBotPermission : undefined,
+                request.ownership.retainedBotPermission,
+              ),
+              stayPut: typeof input.stayPut === 'boolean' ? input.stayPut : request.ownership.stayPut,
+            })
+            return formatToolJson(presentTransferDocumentOwnershipResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_read_doc': {
             const result = await center.readDocumentContent({
               documentId: expectToolString(input.documentId, 'documentId'),
             })
             return formatToolJson(presentReadDocumentContentResult(result), request.output.maxResponseLength)
           }
-          case 'lark_doc_append_content': {
+          case 'lark_write_doc_append': {
             const result = await center.appendDocumentContent({
               documentId: expectToolString(input.documentId, 'documentId'),
               content: expectToolString(input.content, 'content'),
@@ -128,7 +151,7 @@ function createChatLunaToolInstance(
             })
             return formatToolJson(presentAppendDocumentContentResult(result), request.output.maxResponseLength)
           }
-          case 'lark_file_read_content': {
+          case 'lark_read_file': {
             const result = await center.readFileContent({
               fileToken: expectToolString(input.fileToken, 'fileToken'),
               fileName: typeof input.fileName === 'string' ? input.fileName : undefined,
@@ -136,7 +159,7 @@ function createChatLunaToolInstance(
             })
             return formatToolJson(presentReadFileContentResult(result), request.output.maxResponseLength)
           }
-          case 'lark_context_file_read': {
+          case 'lark_read_context_file': {
             const source = typeof input.source === 'string' && input.source.trim()
               ? input.source.trim()
               : 'auto'
@@ -152,7 +175,7 @@ function createChatLunaToolInstance(
             })
             return formatToolJson(presentReadMessageAttachmentResult(result), request.output.maxResponseLength)
           }
-          case 'lark_search_docs': {
+          case 'lark_query_docs_search': {
             const result = await center.searchDocs({
               searchKey: expectToolString(input.searchKey, 'searchKey'),
               count: typeof input.count === 'number' ? input.count : undefined,
@@ -163,20 +186,45 @@ function createChatLunaToolInstance(
             })
             return formatToolJson(presentSearchDocsResult(result), request.output.maxResponseLength)
           }
-          case 'lark_wiki_list_spaces': {
+          case 'lark_query_drive_root': {
+            const result = await center.getDriveRootFolder()
+            return formatToolJson(presentDriveRootFolderResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_query_drive_list': {
+            const result = await center.listDriveFiles({
+              folderToken: typeof input.folderToken === 'string' ? input.folderToken : undefined,
+              pageSize: typeof input.pageSize === 'number' ? input.pageSize : undefined,
+              pageToken: typeof input.pageToken === 'string' ? input.pageToken : undefined,
+            })
+            return formatToolJson(presentDriveFileListResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_query_docs_lookup': {
+            const result = await center.knowledgeLookup({
+              query: expectToolString(input.query, 'query'),
+              count: typeof input.count === 'number' ? input.count : undefined,
+              offset: typeof input.offset === 'number' ? input.offset : undefined,
+              docsTypes: parseCsvInput(input.docsTypes),
+              ownerIds: parseCsvInput(input.ownerIds),
+              chatIds: parseCsvInput(input.chatIds),
+              readTopK: typeof input.readTopK === 'number' ? input.readTopK : undefined,
+              maxContentLength: typeof input.maxContentLength === 'number' ? input.maxContentLength : undefined,
+            })
+            return formatToolJson(presentKnowledgeLookupResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_query_wiki_spaces': {
             const result = await center.listWikiSpaces({
               pageSize: typeof input.pageSize === 'number' ? input.pageSize : undefined,
               pageToken: typeof input.pageToken === 'string' ? input.pageToken : undefined,
             })
             return formatToolJson(presentWikiSpaceListResult(result), request.output.maxResponseLength)
           }
-          case 'lark_wiki_get_node': {
+          case 'lark_query_wiki_node': {
             const result = await center.getWikiNode({
               token: expectToolString(input.token, 'token'),
             })
             return formatToolJson(presentWikiNodeResult(result), request.output.maxResponseLength)
           }
-          case 'lark_wiki_list_nodes': {
+          case 'lark_query_wiki_children': {
             const result = await center.listWikiNodes({
               spaceId: expectToolString(input.spaceId, 'spaceId'),
               parentNodeToken: typeof input.parentNodeToken === 'string' ? input.parentNodeToken : undefined,
@@ -185,14 +233,14 @@ function createChatLunaToolInstance(
             })
             return formatToolJson(presentWikiNodeListResult(result), request.output.maxResponseLength)
           }
-          case 'lark_list_chats': {
+          case 'lark_query_chat_list': {
             const result = await center.listChats({
               pageSize: typeof input.pageSize === 'number' ? input.pageSize : undefined,
               pageToken: typeof input.pageToken === 'string' ? input.pageToken : undefined,
             })
             return formatToolJson(presentChatListResult(result), request.output.maxResponseLength)
           }
-          case 'lark_send_message': {
+          case 'lark_message_send': {
             const result = await center.sendMessage({
               receiveId: expectToolString(input.receiveId, 'receiveId'),
               receiveIdType: input.receiveIdType as ReceiveIdType | undefined,
@@ -212,7 +260,7 @@ function createChatLunaToolInstance(
             })
             return formatToolJson(presentReplyMessageResult(result), request.output.maxResponseLength)
           }
-          case 'lark_message_add_reaction': {
+          case 'lark_message_reaction_add': {
             const messageId = expectToolString(input.messageId, 'messageId')
             const result = await center.addMessageReaction({
               messageId,
@@ -228,7 +276,7 @@ function createChatLunaToolInstance(
               request.output.maxResponseLength,
             )
           }
-          case 'lark_raw_api_request': {
+          case 'lark_system_raw_api': {
             const result = await center.rawRequest({
               method: expectToolString(input.method, 'method'),
               path: expectToolString(input.path, 'path'),

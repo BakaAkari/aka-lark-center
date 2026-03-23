@@ -5,7 +5,9 @@ import { LarkBitableService } from '../domains/bitable/service.js'
 import { LarkDocsService } from '../domains/docs/service.js'
 import { LarkDriveService } from '../domains/drive/service.js'
 import { LarkFilesService } from '../domains/files/service.js'
+import { LarkKnowledgeService } from '../domains/knowledge/service.js'
 import { LarkMessagesService } from '../domains/messages/service.js'
+import { LarkResourceService } from '../domains/resources/service.js'
 import { LarkSearchService } from '../domains/search/service.js'
 import { LarkWikiService } from '../domains/wiki/service.js'
 import { getPermissionError as resolvePermissionError } from '../identity/permissions.js'
@@ -28,13 +30,18 @@ import type {
   LarkCreateDocumentParams,
   LarkCreateDocumentResult,
   LarkGetDriveMetaParams,
+  LarkDriveRootFolderResult,
   LarkDriveMetaResult,
   LarkListChatsParams,
   LarkListChatsResult,
+  LarkListDriveFilesParams,
+  LarkListDriveFilesResult,
   LarkListWikiNodesParams,
   LarkListWikiNodesResult,
   LarkListWikiSpacesParams,
   LarkListWikiSpacesResult,
+  LarkKnowledgeLookupParams,
+  LarkKnowledgeLookupResult,
   LarkPingResult,
   LarkRawRequestParams,
   LarkResourceContext,
@@ -73,6 +80,8 @@ export class LarkCenter extends Service {
   readonly files: LarkFilesService
   readonly search: LarkSearchService
   readonly wiki: LarkWikiService
+  readonly resources: LarkResourceService
+  readonly knowledge: LarkKnowledgeService
 
   private readonly pluginConfig: Config
 
@@ -85,11 +94,13 @@ export class LarkCenter extends Service {
     this.client = new LarkApiClient(ctx, config, logger)
     this.drive = new LarkDriveService(this.client)
     this.wiki = new LarkWikiService(this.client)
-    this.docs = new LarkDocsService(this.client, this.drive, this.wiki, logger)
+    this.docs = new LarkDocsService(this.client, this.drive, logger)
     this.messages = new LarkMessagesService(this.client, config)
     this.bitable = new LarkBitableService()
     this.files = new LarkFilesService(this.client, this.drive)
     this.search = new LarkSearchService(this.client)
+    this.resources = new LarkResourceService(this.client, this.drive, this.wiki)
+    this.knowledge = new LarkKnowledgeService(this.search, this.resources)
   }
 
   getToolDefinitions() {
@@ -136,6 +147,14 @@ export class LarkCenter extends Service {
     return this.drive.getMeta(params)
   }
 
+  getDriveRootFolder(): Promise<LarkDriveRootFolderResult> {
+    return this.drive.getRootFolderMeta()
+  }
+
+  listDriveFiles(params?: LarkListDriveFilesParams): Promise<LarkListDriveFilesResult> {
+    return this.drive.listFiles(params)
+  }
+
   batchGetDriveMetas(params: LarkBatchGetDriveMetasParams): Promise<LarkBatchGetDriveMetasResult> {
     return this.drive.batchGetMetas(params)
   }
@@ -149,11 +168,11 @@ export class LarkCenter extends Service {
   }
 
   readDocumentContent(params: LarkReadDocumentContentParams): Promise<LarkReadDocumentContentResult> {
-    return this.docs.readDocumentContent(params)
+    return this.resources.readDocumentContent(params)
   }
 
   readDocumentContext(params: LarkReadDocumentContextParams): Promise<LarkResourceContext> {
-    return this.docs.readDocumentContext(params)
+    return this.resources.readDocumentContext(params)
   }
 
   readFileContent(params: LarkReadFileContentParams): Promise<LarkReadFileContentResult> {
@@ -162,6 +181,10 @@ export class LarkCenter extends Service {
 
   searchDocs(params: LarkSearchDocsParams): Promise<LarkSearchDocsResult> {
     return this.search.searchDocs(params)
+  }
+
+  knowledgeLookup(params: LarkKnowledgeLookupParams): Promise<LarkKnowledgeLookupResult> {
+    return this.knowledge.lookup(params)
   }
 
   listWikiSpaces(params?: LarkListWikiSpacesParams): Promise<LarkListWikiSpacesResult> {

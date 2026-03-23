@@ -9,6 +9,9 @@ import type {
   AppendDocumentContentPresentation,
   ChatListPresentation,
   CreateDocumentPresentation,
+  DriveFileListPresentation,
+  DriveRootFolderPresentation,
+  KnowledgeLookupPresentation,
   PingPresentation,
   ReadDocumentContentPresentation,
   ReadFileContentPresentation,
@@ -112,6 +115,45 @@ export function formatTransferDocumentOwnershipResult(result: TransferDocumentOw
   ].filter(Boolean).join('\n')
 }
 
+export function formatDriveRootFolderResult(result: DriveRootFolderPresentation) {
+  return [
+    '根文件夹获取成功。',
+    result.id ? `id: ${result.id}` : '',
+    result.token ? `token: ${result.token}` : '',
+    result.name ? `name: ${result.name}` : '',
+    result.parentId ? `parent_id: ${result.parentId}` : '',
+    result.ownerId ? `owner_id: ${result.ownerId}` : '',
+  ].filter(Boolean).join('\n')
+}
+
+export function formatDriveFileListResult(result: DriveFileListPresentation, output: LarkOutputPreferences) {
+  if (!result.items.length) {
+    return [
+      '当前文件夹下没有可列出的资源。',
+      result.folderToken ? `folder_token: ${result.folderToken}` : '',
+    ].filter(Boolean).join('\n')
+  }
+
+  const header = [
+    '文件夹清单获取成功。',
+    result.folderToken ? `folder_token: ${result.folderToken}` : '',
+  ].filter(Boolean).join('\n')
+
+  const body = result.items.map((item, index) => [
+    `${index + 1}. ${item.name || '(未命名资源)'}`,
+    item.type ? `type: ${item.type}` : '',
+    item.token ? `token: ${item.token}` : '',
+    item.parentToken ? `parent_token: ${item.parentToken}` : '',
+    item.url ? `url: ${item.url}` : '',
+  ].filter(Boolean).join('\n')).join('\n\n')
+
+  const footer = result.hasMore && result.nextPageToken
+    ? `\n\nnext_page_token: ${result.nextPageToken}`
+    : ''
+
+  return truncateBlock(`${header}\n\n${body}${footer}`, output.maxResponseLength)
+}
+
 export function formatAppendDocumentContentResult(result: AppendDocumentContentPresentation) {
   return [
     '文档内容追加成功。',
@@ -213,6 +255,40 @@ export function formatSearchDocsResult(result: SearchDocsPresentation, output: L
     : ''
 
   return truncateBlock(`${header}\n\n${body}${footer}`, output.maxResponseLength)
+}
+
+export function formatKnowledgeLookupResult(result: KnowledgeLookupPresentation, output: LarkOutputPreferences) {
+  const header = [
+    '飞书知识检索完成。',
+    `query: ${result.query}`,
+    typeof result.total === 'number' ? `total: ${result.total}` : '',
+  ].filter(Boolean).join('\n')
+
+  const candidates = result.items.length
+    ? result.items.map((item, index) => [
+      `${index + 1}. ${item.title || '(未命名文档)'}`,
+      `docs_type: ${item.docsType || '(unknown)'}`,
+      `docs_token: ${item.docsToken || '(unknown)'}`,
+      item.url ? `url: ${item.url}` : '',
+    ].filter(Boolean).join('\n')).join('\n\n')
+    : '未找到匹配的飞书文档候选。'
+
+  const contexts = result.contexts.length
+    ? result.contexts.map((item, index) => [
+      `[context ${index + 1}] ${item.title || '(未命名文档)'}`,
+      item.docsType ? `docs_type: ${item.docsType}` : '',
+      item.docsToken ? `docs_token: ${item.docsToken}` : '',
+      item.readError ? `read_error: ${item.readError}` : '',
+      item.content ? item.content : '',
+      item.truncated ? '...' : '',
+    ].filter(Boolean).join('\n')).join('\n\n')
+    : '当前没有自动读取到可直接用于回答的正文上下文。'
+
+  const footer = result.hasMore && typeof result.nextOffset === 'number'
+    ? `\n\nnext_offset: ${result.nextOffset}`
+    : ''
+
+  return truncateBlock(`${header}\n\n候选文档：\n${candidates}\n\n已读取上下文：\n${contexts}${footer}`, output.maxResponseLength)
 }
 
 export function formatWikiSpaceListResult(result: WikiSpaceListPresentation, output: LarkOutputPreferences) {

@@ -7,16 +7,78 @@ import {
 import type {
   LarkBatchGetDriveMetasParams,
   LarkBatchGetDriveMetasResult,
+  LarkDriveFileSummary,
   LarkDriveMeta,
   LarkDriveMetaResult,
+  LarkDriveRootFolderResult,
   LarkDriveResourceType,
   LarkGetDriveMetaParams,
+  LarkListDriveFilesParams,
+  LarkListDriveFilesResult,
   LarkTransferDocumentOwnershipParams,
   LarkTransferDocumentOwnershipResult,
 } from '../../shared/types.js'
 
 export class LarkDriveService {
   constructor(private readonly client: LarkApiClient) {}
+
+  async getRootFolderMeta(): Promise<LarkDriveRootFolderResult> {
+    try {
+      const response = await this.client.requestOrThrow<Record<string, unknown>>(
+        'GET',
+        '/open-apis/drive/explorer/v2/root_folder/meta',
+      )
+
+      const data = asRecord(response.data) ?? {}
+      return {
+        id: takeString(data.id),
+        token: takeString(data.token),
+        name: takeString(data.name),
+        parentId: takeString(data.parent_id) || takeString(data.parentId),
+        ownerId: takeString(data.owner_id) || takeString(data.ownUid) || takeString(data.createUid),
+        raw: response,
+      }
+    } catch (error) {
+      throw wrapDomainError('获取我的空间根文件夹失败', error)
+    }
+  }
+
+  async listFiles(params: LarkListDriveFilesParams = {}): Promise<LarkListDriveFilesResult> {
+    const pageSize = typeof params.pageSize === 'number' && params.pageSize > 0
+      ? Math.min(Math.floor(params.pageSize), 200)
+      : 20
+
+    try {
+      const folderToken = params.folderToken?.trim() || (await this.getRootFolderMeta()).token
+      const response = await this.client.requestOrThrow<{
+        files?: Array<Record<string, unknown>>
+        items?: Array<Record<string, unknown>>
+        has_more?: boolean
+        next_page_token?: string
+        page_token?: string
+      }>(
+        'GET',
+        '/open-apis/drive/v1/files',
+        undefined,
+        {
+          folder_token: folderToken,
+          page_size: String(pageSize),
+          page_token: params.pageToken?.trim() || undefined,
+        },
+      )
+
+      const items = (response.data?.files ?? response.data?.items ?? []).map(toDriveFileSummary)
+      return {
+        folderToken,
+        items,
+        hasMore: Boolean(response.data?.has_more),
+        nextPageToken: takeString(response.data?.next_page_token) || takeString(response.data?.page_token),
+        raw: response,
+      }
+    } catch (error) {
+      throw wrapDomainError('获取文件夹清单失败', error)
+    }
+  }
 
   async batchGetMetas(params: LarkBatchGetDriveMetasParams): Promise<LarkBatchGetDriveMetasResult> {
     const resources = params.resources
@@ -159,4 +221,34 @@ export class LarkDriveService {
       raw: meta,
     }
   }
+}
+
+function toDriveFileSummary(item: Record<string, unknown>): LarkDriveFileSummary {
+  return {
+    token: takeString(item.token) || takeString(item.file_token),
+    type: resolveDriveResourceType(item.type) || resolveDriveResourceType(item.mime_type) || resolveDriveResourceType(item.file_type),
+    name: takeString(item.name),
+    parentToken: takeString(item.parent_token) || takeString(item.parentToken),
+    url: takeString(item.url),
+    ownerId: takeString(item.owner_id) || takeString(item.ownerId),
+    raw: item,
+  }
+}
+
+function resolveDriveResourceType(value: unknown): LarkDriveResourceType | undefined {
+  if (typeof value !== 'string' || !value.trim()) return undefined
+  const normalized = value.trim() as LarkDriveResourceType
+  return ['doc', 'docx', 'sheet', 'bitable', 'file', 'wiki', 'folder'].includes(normalized)
+    ? normalized
+    : undefined
+}
+
+function asRecord(value: unknown) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+function takeString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value : undefined
 }

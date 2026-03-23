@@ -16,6 +16,10 @@ export function parseLarkDocumentReference(input: string): LarkDocumentReference
     }
   }
 
+  if (/\s/.test(normalized)) {
+    throw createValidationError('documentRef 必须是单个 token、飞书 URL 或 Markdown 链接。')
+  }
+
   if (/^wik/i.test(normalized)) {
     return {
       kind: 'wiki',
@@ -34,12 +38,16 @@ export function parseLarkDocumentReference(input: string): LarkDocumentReference
     }
   }
 
-  return {
-    kind: 'docx',
-    token: normalized,
-    matchedText: input.trim(),
-    sourceRef: normalized,
+  if (looksLikeProbableDocxToken(normalized)) {
+    return {
+      kind: 'docx',
+      token: normalized,
+      matchedText: input.trim(),
+      sourceRef: normalized,
+    }
   }
+
+  throw createValidationError('无法识别的飞书文档引用，请提供 doc/docx/wiki token、飞书 URL 或 Markdown 链接。')
 }
 
 export function extractLarkDocumentReferences(text: string): LarkDocumentReference[] {
@@ -150,7 +158,14 @@ function stripTrailingUrlPunctuation(input: string) {
 function looksLikeStandaloneDocumentToken(input: string) {
   const normalized = input.trim()
   if (!normalized || /\s/.test(normalized)) return false
-  return /^wik/i.test(normalized) || /^docx/i.test(normalized) || /^doc/i.test(normalized)
+  return /^wik/i.test(normalized)
+    || /^docx/i.test(normalized)
+    || /^doc/i.test(normalized)
+    || looksLikeProbableDocxToken(normalized)
+}
+
+function looksLikeProbableDocxToken(input: string) {
+  return /^[A-Za-z0-9_-]{8,}$/.test(input)
 }
 
 function parseLarkDocumentReferenceFromUrl(input: string) {

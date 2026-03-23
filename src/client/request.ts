@@ -53,10 +53,16 @@ export class LarkApiClient {
         }) as LarkApiResponse<T>
       }
     } catch (error) {
-      throw createApiError(`请求 Lark API 失败：${method} ${normalizedPath}`, error, {
-        method,
-        apiPath: normalizedPath,
-      })
+      const failure = extractHttpFailure(error)
+      throw createApiError(
+        buildRequestFailureMessage(method, normalizedPath, failure),
+        error,
+        {
+          method,
+          apiPath: normalizedPath,
+          ...failure,
+        },
+      )
     }
 
     try {
@@ -170,4 +176,74 @@ export class LarkApiClient {
 
     return createApiError(message, error, details)
   }
+}
+
+interface HttpFailureDetails {
+  status?: number
+  errorCode?: string
+  responseCode?: number
+  responseMsg?: string
+  responseMessage?: string
+  responseBody?: string
+}
+
+function buildRequestFailureMessage(method: LarkMethod, apiPath: string, failure: HttpFailureDetails) {
+  const parts = [
+    typeof failure.status === 'number' ? `HTTP ${failure.status}` : '',
+    typeof failure.responseCode === 'number' ? `Lark code=${failure.responseCode}` : '',
+    failure.responseMsg || '',
+    failure.responseMessage || '',
+    failure.errorCode ? `error=${failure.errorCode}` : '',
+  ].filter(Boolean)
+
+  const detail = parts.join(' | ')
+  return detail
+    ? `请求 Lark API 失败：${method} ${apiPath}：${detail}`
+    : `请求 Lark API 失败：${method} ${apiPath}`
+}
+
+function extractHttpFailure(error: unknown): HttpFailureDetails {
+  const top = asRecord(error)
+  const response = asRecord(top?.response)
+  const body = response?.data ?? response?.body ?? top?.data ?? top?.body
+  const bodyRecord = asRecord(body)
+
+  return {
+    status: takeNumber(response?.status) ?? takeNumber(top?.status),
+    errorCode: takeString(top?.code),
+    responseCode: takeNumber(bodyRecord?.code),
+    responseMsg: takeString(bodyRecord?.msg),
+    responseMessage: takeString(bodyRecord?.message),
+    responseBody: formatResponseBody(body),
+  }
+}
+
+function formatResponseBody(value: unknown) {
+  if (value == null) return undefined
+  if (typeof value === 'string') {
+    const text = value.trim()
+    if (!text) return undefined
+    return text.length > 500 ? `${text.slice(0, 500)}...` : text
+  }
+
+  if (typeof value === 'object') {
+    try {
+      const text = JSON.stringify(value)
+      return text.length > 500 ? `${text.slice(0, 500)}...` : text
+    } catch {}
+  }
+
+  return undefined
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : undefined
+}
+
+function takeString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value : undefined
+}
+
+function takeNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }

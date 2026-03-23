@@ -64,3 +64,11 @@ export function prependContextBlockToMessage(original: string, contextBlock: str
     '[/USER_QUESTION]',
   ].join('\n')
 }
+
+export function buildContextPrefixBlock(contextBlock: string) {
+  return [
+    '请优先根据下面的飞书资源上下文回答用户问题；如果上下文标记为 truncated=true，请保守回答，不要假设未提供的内容。',
+    '',
+    contextBlock,
+  ].join('\n')
+}

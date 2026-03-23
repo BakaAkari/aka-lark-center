@@ -19,7 +19,9 @@
 当前源码状态可以概括为：
 
 - 已完成并对外可用：凭证校验、会话列表、消息发送/回复/reaction、文档创建/读取/追加、文档 owner 转移、文本类文件读取、文档搜索、知识空间 / wiki 基础查询、raw OpenAPI 调用
-- 已完成并可供插件复用：`ctx.larkCenter` service、按 domain 拆分的 `docs/drive/messages/files/bitable` 内部结构、稳定工具定义、可选 ChatLuna 工具桥接
+- 已新增第一批 discovery 能力：获取云空间根文件夹、列出文件夹下资源清单，可作为“受限版知识中心”的资源发现入口
+- 已新增第一版高层知识检索能力：可按自然语言需求先搜索候选文档，再自动读取前几个可读 doc/docx/wiki 正文
+- 已完成并可供插件复用：`ctx.larkCenter` service、按 domain 拆分的 `docs/drive/messages/files/search/wiki/resources/knowledge/bitable` 内部结构、稳定工具定义、可选 ChatLuna 工具桥接
 - 已上线但范围有限：`files` 目前只保留文本类文件读取；额外格式和图片 OCR 的扩展因飞书内链、ChatLuna 与 LLM 通信链路问题暂时标记为待定；消息附件读取也只会在上下文唯一或显式指定来源时生效
 - 已新增首个 search/wiki 只读切片：支持搜索云文档、列知识空间、读取 wiki 节点元数据、列子节点；更深的搜索增强和知识库写操作仍在后续阶段
 - 已新增首个 ChatLuna 上下文注入切片：在当前消息里识别单个 `wiki/doc/docx` 链接后，可自动读取并把文档内容注入当前轮模型上下文
@@ -31,6 +33,7 @@
 - [`docs/lark-center-doc/architecture.md`](../../docs/lark-center-doc/architecture.md)
 - [`docs/lark-center-doc/context-injection.md`](../../docs/lark-center-doc/context-injection.md)
 - [`docs/lark-center-doc/current-status.md`](../../docs/lark-center-doc/current-status.md)
+- [`docs/lark-center-doc/knowledge-center-plan.md`](../../docs/lark-center-doc/knowledge-center-plan.md)
 - [`docs/lark-center-doc/phase-plan.md`](../../docs/lark-center-doc/phase-plan.md)
 
 ## Features
@@ -41,6 +44,8 @@
 - 支持按 `fileToken` 读取飞书文本类文件内容
 - 支持按“当前消息 / 引用消息”的上下文读取飞书文件附件内容
 - 支持按关键词搜索飞书云文档资源
+- 支持获取云空间根文件夹并列出文件夹资源清单
+- 支持按自然语言问题执行“搜索候选文档 + 自动读取正文”的高层知识检索
 - 支持列出知识空间、读取 wiki 节点信息、列出 wiki 子节点
 - 支持 `chat_id / open_id / user_id / union_id / email` 发送消息
 - 支持回复指定消息和添加消息表情回复
@@ -73,23 +78,32 @@
 
 ## Commands
 
+统一命名规则：
+
+- 命令入口：`lark.<action>.<resource>[.<detail>]`
+- ChatLuna tool：`lark_<action>_<resource>[_detail]`
+- 常见 action：`system` / `query` / `read` / `write` / `message`
+
 ```text
-lark.ping
-lark.chat.list
-lark.doc.create <title> [content]
-lark.doc.transfer-owner <documentId> [ownerOpenId]
+lark.system.ping
+lark.query.chat.list
+lark.query.drive.root
+lark.query.drive.list [folderToken]
+lark.query.docs.lookup <query>
+lark.write.doc.create <title> [content]
+lark.write.doc.transfer-owner <documentId> [ownerOpenId]
 lark.read.doc <documentRef>
 lark.read.file [fileToken]
-lark.doc.append <documentId> <content>
-lark.search.docs <searchKey>
-lark.wiki.space.list
-lark.wiki.node.get <token>
-lark.wiki.node.list <spaceId> [parentNodeToken]
+lark.write.doc.append <documentId> <content>
+lark.query.docs.search <searchKey>
+lark.query.wiki.spaces
+lark.query.wiki.node <token>
+lark.query.wiki.children <spaceId> [parentNodeToken]
 lark.message.send <receiveId> <content>
 lark.message.reply <messageId> <content>
 lark.message.reaction.add <messageId> <emojiType>
-lark.raw <method> <path> [payload]
-lark.tool.list
+lark.system.raw <method> <path> [payload]
+lark.system.tool.list
 ```
 
 ## Service API
@@ -106,6 +120,8 @@ domain 对象：
 - `ctx.larkCenter.files`
 - `ctx.larkCenter.search`
 - `ctx.larkCenter.wiki`
+- `ctx.larkCenter.resources`
+- `ctx.larkCenter.knowledge`
 - `ctx.larkCenter.bitable`
 
 常用扁平方法：
@@ -129,6 +145,9 @@ domain 对象：
 - `ctx.larkCenter.addMessageReaction({ messageId, emojiType })`
 - `ctx.larkCenter.rawRequest({ method, path, payload, json })`
 - `ctx.larkCenter.getDriveMeta({ token, type })`
+- `ctx.larkCenter.getDriveRootFolder()`
+- `ctx.larkCenter.listDriveFiles({ folderToken, pageSize, pageToken })`
+- `ctx.larkCenter.knowledgeLookup({ query, count, offset, docsTypes, ownerIds, chatIds, readTopK, maxContentLength })`
 - `ctx.larkCenter.batchGetDriveMetas({ resources })`
 - `ctx.larkCenter.getCapabilities()`
 - `ctx.larkCenter.getToolDefinitions()`
@@ -154,20 +173,24 @@ await ctx.larkCenter.sendMessage({
 
 插件导出了一组面向 LLM bridge 的工具定义：
 
-- `lark_doc_create`
-- `lark_doc_read_content`
-- `lark_doc_append_content`
-- `lark_file_read_content`
-- `lark_context_file_read`
-- `lark_search_docs`
-- `lark_wiki_list_spaces`
-- `lark_wiki_get_node`
-- `lark_wiki_list_nodes`
-- `lark_list_chats`
-- `lark_send_message`
+- `lark_write_doc_create`
+- `lark_write_doc_transfer_owner`
+- `lark_read_doc`
+- `lark_write_doc_append`
+- `lark_read_file`
+- `lark_read_context_file`
+- `lark_query_docs_search`
+- `lark_query_drive_root`
+- `lark_query_drive_list`
+- `lark_query_docs_lookup`
+- `lark_query_wiki_spaces`
+- `lark_query_wiki_node`
+- `lark_query_wiki_children`
+- `lark_query_chat_list`
+- `lark_message_send`
 - `lark_message_reply`
-- `lark_message_add_reaction`
-- `lark_raw_api_request`
+- `lark_message_reaction_add`
+- `lark_system_raw_api`
 
 这些定义的目标是让桥接层不需要再手写飞书参数说明，而是可以直接读取：
 
@@ -179,34 +202,39 @@ await ctx.larkCenter.sendMessage({
 
 当前建议：
 
-- 默认给 LLM 暴露 `lark_list_chats` 和 `lark_send_message`
-- 文档场景下优先使用 `lark_doc_create`、`lark_doc_read_content` 和 `lark_doc_append_content`
-- 文件阅读场景下使用 `lark_file_read_content`
-- 搜索文档时优先使用 `lark_search_docs`
-- 进入知识空间浏览时优先使用 `lark_wiki_list_spaces`、`lark_wiki_get_node` 和 `lark_wiki_list_nodes`
-- 如果用户说“读这个文件”或回复了一条文件消息，优先使用 `lark_context_file_read`
-- 对聊天交互增强，优先使用 `lark_message_reply` 和 `lark_message_add_reaction`
-- `lark_raw_api_request` 只在高级场景开放
-- `transfer-owner` 和 `bitable` 相关能力目前还没有单独的 bridge tool 定义
+- 默认给 LLM 暴露 `lark_query_chat_list` 和 `lark_message_send`
+- 文档场景下优先使用 `lark_write_doc_create`、`lark_read_doc`、`lark_write_doc_append` 和 `lark_write_doc_transfer_owner`
+- 文件阅读场景下使用 `lark_read_file`
+- 搜索文档时优先使用 `lark_query_docs_search`
+- 需要从云空间结构发现资源时，优先使用 `lark_query_drive_root` 和 `lark_query_drive_list`
+- 当用户直接问“哪份文档里提到了某个内容”或“根据可读文档回答这个问题”时，优先使用 `lark_query_docs_lookup`
+- 进入知识空间浏览时优先使用 `lark_query_wiki_spaces`、`lark_query_wiki_node` 和 `lark_query_wiki_children`
+- 如果用户说“读这个文件”或回复了一条文件消息，优先使用 `lark_read_context_file`
+- 对聊天交互增强，优先使用 `lark_message_reply` 和 `lark_message_reaction_add`
+- `lark_system_raw_api` 只在高级场景开放
 
 ## Built-in ChatLuna Bridge
 
 当 `chatlunaEnabled` 为 `true` 时，插件会尝试在运行时对接 ChatLuna，并注册以下工具：
 
-- `lark_list_chats`
-- `lark_doc_create`
-- `lark_doc_read_content`
-- `lark_doc_append_content`
-- `lark_file_read_content`
-- `lark_context_file_read`
-- `lark_search_docs`
-- `lark_wiki_list_spaces`
-- `lark_wiki_get_node`
-- `lark_wiki_list_nodes`
-- `lark_send_message`
+- `lark_write_doc_create`
+- `lark_write_doc_transfer_owner`
+- `lark_read_doc`
+- `lark_write_doc_append`
+- `lark_read_file`
+- `lark_read_context_file`
+- `lark_query_docs_search`
+- `lark_query_drive_root`
+- `lark_query_drive_list`
+- `lark_query_docs_lookup`
+- `lark_query_wiki_spaces`
+- `lark_query_wiki_node`
+- `lark_query_wiki_children`
+- `lark_query_chat_list`
+- `lark_message_send`
 - `lark_message_reply`
-- `lark_message_add_reaction`
-- `lark_raw_api_request`
+- `lark_message_reaction_add`
+- `lark_system_raw_api`
 
 当 `chatlunaEnabled` 改为 `false` 时，插件会卸载自己注册的 ChatLuna 工具。
 
@@ -215,8 +243,9 @@ await ctx.larkCenter.sendMessage({
 - 这里不需要给 `aka-lark-center` 新增 npm 依赖。
 - 但运行环境里仍然需要已经安装并启用 ChatLuna，否则只会记录警告，不会影响插件主体工作。
 - 这套桥接目前是内置的总开关控制，不需要额外新建一个插件包。
-- 当前桥接注册的是文档/文件/消息/raw 相关工具，不包含 `transfer-owner` 或 `bitable` 专用工具。
+- 当前桥接注册的是文档/文件/消息/raw 相关工具，并已包含 `transfer-owner` 专用工具；`bitable` 仍未进入 bridge。
 - 当前桥接还会在 `chatluna/before-chat` 阶段自动识别消息里的飞书 `wiki/doc/docx` 链接，并把读取到的文档内容作为上下文块注入当前轮用户问题。
+- 当前桥接也会在 `chatluna/before-chat` 阶段识别“查找/搜索飞书文档内容”这类知识检索意图，并先自动运行一轮 `lark_query_docs_lookup`，再把候选文档和已读取正文片段注入当前轮上下文。
 - 自动注入目前只负责“首次命中文档链接时，把正文注入当前轮上下文”。
 - 后续多轮追问默认交给 ChatLuna 自己的会话短期记忆处理，`aka-lark-center` 不再重复缓存并反复注入同一份文档内容。
 
@@ -225,16 +254,27 @@ await ctx.larkCenter.sendMessage({
 ### 验证凭证
 
 ```text
-lark.ping
+lark.system.ping
 ```
 
 ### 列出会话
 
 ```text
-lark.chat.list
-lark.chat.list -s 50
-lark.chat.list -t <page_token>
+lark.query.chat.list
+lark.query.chat.list -s 50
+lark.query.chat.list -t <page_token>
 ```
+
+### 获取根文件夹与列出资源
+
+```text
+lark.query.drive.root
+lark.query.drive.list
+lark.query.drive.list fldcnxxxx
+lark.query.drive.list -s 50 fldcnxxxx
+```
+
+`lark.query.drive.root` 适合拿当前可访问的根文件夹 token。`lark.query.drive.list` 适合沿着文件夹继续浏览文档、文件夹、表格等资源清单，不传 `folderToken` 时默认先取根目录。
 
 ### 发送文本消息
 
@@ -248,16 +288,16 @@ lark.message.send -r open_id ou_xxx hello
 ### 创建文档
 
 ```text
-lark.doc.create 工作记录
-lark.doc.create -c markdown 周报 # 本周总结
-lark.doc.create -o 工作记录
+lark.write.doc.create 工作记录
+lark.write.doc.create -c markdown 周报 # 本周总结
+lark.write.doc.create -o 工作记录
 ```
 
 ### 转移文档 owner
 
 ```text
-lark.doc.transfer-owner doccnxxxx
-lark.doc.transfer-owner -p view doccnxxxx ou_xxx
+lark.write.doc.transfer-owner doccnxxxx
+lark.write.doc.transfer-owner -p view doccnxxxx ou_xxx
 ```
 
 如果不显式传入 `ownerOpenId`，插件会优先尝试从当前飞书/Lark 会话中推导请求者的 `open_id`。
@@ -265,8 +305,8 @@ lark.doc.transfer-owner -p view doccnxxxx ou_xxx
 ### 追加文档内容
 
 ```text
-lark.doc.append doccnxxxx 这是追加的一段文本
-lark.doc.append -c markdown doccnxxxx ## 新章节
+lark.write.doc.append doccnxxxx 这是追加的一段文本
+lark.write.doc.append -c markdown doccnxxxx ## 新章节
 ```
 
 ### 读取文件内容
@@ -300,24 +340,34 @@ lark.read.file -s quote
 ### 搜索文档
 
 ```text
-lark.search.docs 项目周报
-lark.search.docs -c 5 项目周报
-lark.search.docs -t docx,wiki 项目周报
+lark.query.docs.search 项目周报
+lark.query.docs.search -c 5 项目周报
+lark.query.docs.search -t docx,wiki 项目周报
 ```
 
 支持按关键词搜索飞书文档资源，第一版主要面向“先找到目标，再继续读”的场景。
 
+### 高层知识检索
+
+```text
+lark.query.docs.lookup 鲨鱼湾地图玩法
+lark.query.docs.lookup -r 2 鲨鱼湾地图玩法
+lark.query.docs.lookup -t docx,wiki -m 3000 鲨鱼湾地图玩法
+```
+
+`lark.query.docs.lookup` 会先搜索候选文档，再自动读取前几个可读的 `doc/docx/wiki` 正文，把候选信息和已读取上下文一起返回。它更适合“根据用户需求先找文档，再继续回答”的知识中心场景。
+
 ### 列出知识空间
 
 ```text
-lark.wiki.space.list
-lark.wiki.space.list -s 50
+lark.query.wiki.spaces
+lark.query.wiki.spaces -s 50
 ```
 
 ### 获取 wiki 节点信息
 
 ```text
-lark.wiki.node.get wikcnxxxx
+lark.query.wiki.node wikcnxxxx
 ```
 
 返回的是节点元数据，包括 `space_id`、`node_token`、`obj_token` 和 `obj_type`，便于后续继续定位真实资源。
@@ -325,8 +375,8 @@ lark.wiki.node.get wikcnxxxx
 ### 列出 wiki 子节点
 
 ```text
-lark.wiki.node.list 7345678901234567890
-lark.wiki.node.list 7345678901234567890 wikcnxxxx
+lark.query.wiki.children 7345678901234567890
+lark.query.wiki.children 7345678901234567890 wikcnxxxx
 ```
 
 如果不提供 `parentNodeToken`，默认列出该知识空间下的顶层节点。
@@ -378,22 +428,22 @@ lark.message.send -r chat_id -m post -j oc_xxx {"zh_cn":{"title":"标题","conte
 示例：
 
 ```text
-lark.raw GET /open-apis/im/v1/chats
-lark.raw GET docx/v1/documents/<document_id>
-lark.raw POST wiki/v2/spaces/get_node -j {"token":"wiki_token"}
+lark.system.raw GET /open-apis/im/v1/chats
+lark.system.raw GET docx/v1/documents/<document_id>
+lark.system.raw POST wiki/v2/spaces/get_node -j {"token":"wiki_token"}
 ```
 
 ### 查看工具定义
 
 ```text
-lark.tool.list
+lark.system.tool.list
 ```
 
 ## Notes
 
 - 插件只负责 Koishi 到飞书 OpenAPI 的认证、转发和基础能力封装。
 - 具体能操作哪些 Lark 内容，取决于你的飞书应用已经开通并审核通过的权限。
-- 如果在飞书/Lark 用户会话中通过 ChatLuna 调用 `lark_doc_create`，并且插件开启了自动 owner 转交配置，创建后的文档会自动把 owner 转给当前请求者。
+- 如果在飞书/Lark 用户会话中通过 ChatLuna 调用 `lark_write_doc_create`，并且插件开启了自动 owner 转交配置，创建后的文档会自动把 owner 转给当前请求者。
 - 如果后续还要兼容非 ChatLuna 的 LLM 插件，优先复用 `ctx.larkCenter` 和工具定义，不要把飞书核心能力绑死在某一个 LLM 生态上。
 - `files v1` 当前只支持 UTF-8 文本类文件读取，不等同于完整的 `pdf/docx/xlsx` 抽取管线。
 - 文件额外格式支持和图片 OCR 目前已降级为待定事项，恢复推进前需要先理清飞书内链与 ChatLuna / LLM 通信链路的问题。

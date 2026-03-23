@@ -3,11 +3,16 @@ import type {
   LarkAppendDocumentContentResult,
   LarkChatSummary,
   LarkCreateDocumentResult,
+  LarkDriveFileSummary,
+  LarkDriveRootFolderResult,
   LarkDocumentSummary,
   LarkGetWikiNodeResult,
   LarkListChatsResult,
+  LarkListDriveFilesResult,
   LarkListWikiNodesResult,
   LarkListWikiSpacesResult,
+  LarkKnowledgeLookupResult,
+  LarkKnowledgeContextItem,
   LarkSearchDocsResult,
   LarkSearchDocumentSummary,
   LarkPingResult,
@@ -49,6 +54,23 @@ export interface TransferDocumentOwnershipPresentation {
   retainedBotPermission: LarkTransferDocumentOwnershipResult['retainedBotPermission']
   stayPut: boolean
   url?: string
+}
+
+export interface DriveRootFolderPresentation {
+  ok: true
+  id?: string
+  token?: string
+  name?: string
+  parentId?: string
+  ownerId?: string
+}
+
+export interface DriveFileListPresentation {
+  folderToken?: string
+  items: LarkDriveFileSummary[]
+  hasMore: boolean
+  nextPageToken?: string
+  raw: unknown
 }
 
 export interface AppendDocumentContentPresentation {
@@ -93,6 +115,16 @@ export interface ReadMessageAttachmentPresentation {
 export interface SearchDocsPresentation {
   searchKey: string
   items: LarkSearchDocumentSummary[]
+  total?: number
+  hasMore: boolean
+  nextOffset?: number
+  raw: unknown
+}
+
+export interface KnowledgeLookupPresentation {
+  query: string
+  items: LarkSearchDocumentSummary[]
+  contexts: LarkKnowledgeContextItem[]
   total?: number
   hasMore: boolean
   nextOffset?: number
@@ -189,6 +221,29 @@ export function presentTransferDocumentOwnershipResult(
   }
 }
 
+export function presentDriveRootFolderResult(
+  result: LarkDriveRootFolderResult,
+): DriveRootFolderPresentation {
+  return {
+    ok: true,
+    id: result.id,
+    token: result.token,
+    name: result.name,
+    parentId: result.parentId,
+    ownerId: result.ownerId,
+  }
+}
+
+export function presentDriveFileListResult(result: LarkListDriveFilesResult): DriveFileListPresentation {
+  return {
+    folderToken: result.folderToken,
+    items: result.items,
+    hasMore: result.hasMore,
+    nextPageToken: result.nextPageToken,
+    raw: result.raw,
+  }
+}
+
 export function presentAppendDocumentContentResult(
   result: LarkAppendDocumentContentResult,
 ): AppendDocumentContentPresentation {
@@ -248,6 +303,18 @@ export function presentSearchDocsResult(result: LarkSearchDocsResult): SearchDoc
   return {
     searchKey: result.searchKey,
     items: result.items,
+    total: result.total,
+    hasMore: result.hasMore,
+    nextOffset: result.nextOffset,
+    raw: result.raw,
+  }
+}
+
+export function presentKnowledgeLookupResult(result: LarkKnowledgeLookupResult): KnowledgeLookupPresentation {
+  return {
+    query: result.query,
+    items: result.items,
+    contexts: result.contexts,
     total: result.total,
     hasMore: result.hasMore,
     nextOffset: result.nextOffset,
