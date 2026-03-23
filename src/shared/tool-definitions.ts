@@ -46,14 +46,14 @@ export const LARK_TOOL_DEFINITIONS: LarkToolDefinition[] = [
   {
     name: 'lark_doc_read_content',
     description: 'Read the plain text content of a Lark docx document.',
-    usage: 'Use this when the user wants to inspect or summarize an existing Feishu document. Returns the document plain text content rendered by the Lark raw_content API.',
+    usage: 'Use this when the user wants to inspect or summarize an existing Feishu document. The input may be a document token, a Feishu doc/docx URL, or a wiki URL that resolves to a doc/docx resource.',
     riskLevel: 'low',
     inputSchema: {
       type: 'object',
       properties: {
         documentId: {
           type: 'string',
-          description: 'Target document_id.',
+          description: 'Target document token, document URL, wiki URL, or markdown link wrapping one of those URLs.',
         },
       },
       required: ['documentId'],
@@ -138,6 +138,105 @@ export const LARK_TOOL_DEFINITIONS: LarkToolDefinition[] = [
           description: 'Optional MIME type hint for type detection.',
         },
       },
+    },
+  },
+  {
+    name: 'lark_search_docs',
+    description: 'Search Feishu drive documents by keyword.',
+    usage: 'Use this when the user asks to find a document, sheet, or related resource by name. docsTypes, ownerIds, and chatIds should be comma-separated strings when provided.',
+    riskLevel: 'low',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        searchKey: {
+          type: 'string',
+          description: 'Search keyword.',
+        },
+        count: {
+          type: 'number',
+          description: 'Maximum number of results to return. Defaults to 10.',
+        },
+        offset: {
+          type: 'number',
+          description: 'Search offset for pagination. Defaults to 0.',
+        },
+        docsTypes: {
+          type: 'string',
+          description: 'Optional comma-separated document types such as docx,sheet,bitable,file,wiki.',
+        },
+        ownerIds: {
+          type: 'string',
+          description: 'Optional comma-separated owner IDs.',
+        },
+        chatIds: {
+          type: 'string',
+          description: 'Optional comma-separated chat IDs.',
+        },
+      },
+      required: ['searchKey'],
+    },
+  },
+  {
+    name: 'lark_wiki_list_spaces',
+    description: 'List wiki or knowledge spaces accessible to the current app.',
+    usage: 'Use this before deeper wiki traversal when you need to discover a target space_id.',
+    riskLevel: 'low',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pageSize: {
+          type: 'number',
+          description: 'Optional page size from 1 to 50. Defaults to 20.',
+        },
+        pageToken: {
+          type: 'string',
+          description: 'Optional pagination token returned by a previous call.',
+        },
+      },
+    },
+  },
+  {
+    name: 'lark_wiki_get_node',
+    description: 'Get metadata for a wiki node by token.',
+    usage: 'Use this when you already have a wiki token and want to inspect the mapped object token, object type, or parent/space relationships.',
+    riskLevel: 'low',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        token: {
+          type: 'string',
+          description: 'Wiki node token.',
+        },
+      },
+      required: ['token'],
+    },
+  },
+  {
+    name: 'lark_wiki_list_nodes',
+    description: 'List child nodes under a wiki space or a specific parent node.',
+    usage: 'Use this to browse wiki structure. If parentNodeToken is omitted, the tool lists top-level nodes for the space.',
+    riskLevel: 'low',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        spaceId: {
+          type: 'string',
+          description: 'Target wiki space ID.',
+        },
+        parentNodeToken: {
+          type: 'string',
+          description: 'Optional parent node token.',
+        },
+        pageSize: {
+          type: 'number',
+          description: 'Optional page size from 1 to 50. Defaults to 20.',
+        },
+        pageToken: {
+          type: 'string',
+          description: 'Optional pagination token returned by a previous call.',
+        },
+      },
+      required: ['spaceId'],
     },
   },
   {

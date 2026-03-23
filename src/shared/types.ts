@@ -16,6 +16,8 @@ export interface Config {
   transferOwnershipStayPut: boolean
   logApiFailures: boolean
   chatlunaEnabled: boolean
+  chatlunaContextInjectionEnabled: boolean
+  chatlunaContextMaxChars: number
 }
 
 export type ReceiveIdType = 'chat_id' | 'open_id' | 'user_id' | 'union_id' | 'email'
@@ -23,7 +25,11 @@ export type LarkMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 export type DocumentContentType = 'plain_text' | 'markdown' | 'html'
 export type DriveMemberPermission = 'view' | 'edit' | 'full_access'
 export type LarkRequestQuery = Record<string, string | undefined>
-export type LarkDriveResourceType = 'docx' | 'sheet' | 'bitable' | 'file' | 'wiki' | 'folder'
+export type LarkDriveResourceType = 'doc' | 'docx' | 'sheet' | 'bitable' | 'file' | 'wiki' | 'folder'
+export type LarkDocumentReferenceKind = 'doc' | 'docx' | 'wiki'
+export type LarkResourceContextType = LarkDocumentReferenceKind | 'file'
+export type LarkResolvedResourceType = 'doc' | 'docx' | 'file'
+export type LarkResourcePermissionState = 'granted' | 'denied' | 'unknown'
 
 export type SessionLike = Session & {
   user?: {
@@ -158,7 +164,32 @@ export interface LarkCapabilityFlags {
   messages: boolean
   bitable: boolean
   files: boolean
+  search: boolean
+  wiki: boolean
   chatlunaBridge: boolean
+}
+
+export interface LarkDocumentReference {
+  kind: LarkDocumentReferenceKind
+  token: string
+  matchedText: string
+  sourceRef: string
+}
+
+export interface LarkResourceContext {
+  type: LarkResourceContextType
+  sourceRef: string
+  matchedText?: string
+  resolvedToken?: string
+  resolvedType?: LarkResolvedResourceType
+  title?: string
+  url?: string
+  content: string
+  truncated: boolean
+  contentLength: number
+  permissionState: LarkResourcePermissionState
+  error?: string
+  raw?: unknown
 }
 
 export interface LarkListChatsParams {
@@ -168,6 +199,90 @@ export interface LarkListChatsParams {
 
 export interface LarkListChatsResult {
   items: LarkChatSummary[]
+  hasMore: boolean
+  nextPageToken?: string
+  raw: unknown
+}
+
+export interface LarkSearchDocumentSummary {
+  docsToken?: string
+  docsType?: string
+  title?: string
+  ownerId?: string
+  url?: string
+  raw?: unknown
+}
+
+export interface LarkSearchDocsParams {
+  searchKey: string
+  count?: number
+  offset?: number
+  ownerIds?: string[]
+  chatIds?: string[]
+  docsTypes?: string[]
+}
+
+export interface LarkSearchDocsResult {
+  searchKey: string
+  count: number
+  offset: number
+  items: LarkSearchDocumentSummary[]
+  total?: number
+  hasMore: boolean
+  nextOffset?: number
+  raw: unknown
+}
+
+export interface LarkListWikiSpacesParams {
+  pageSize?: number
+  pageToken?: string
+}
+
+export interface LarkWikiSpaceSummary {
+  spaceId?: string
+  name?: string
+  description?: string
+  raw?: unknown
+}
+
+export interface LarkListWikiSpacesResult {
+  items: LarkWikiSpaceSummary[]
+  hasMore: boolean
+  nextPageToken?: string
+  raw: unknown
+}
+
+export interface LarkWikiNodeSummary {
+  spaceId?: string
+  nodeToken?: string
+  parentNodeToken?: string
+  objToken?: string
+  objType?: string
+  title?: string
+  url?: string
+  hasChild?: boolean
+  raw?: unknown
+}
+
+export interface LarkGetWikiNodeParams {
+  token: string
+}
+
+export interface LarkGetWikiNodeResult extends LarkWikiNodeSummary {
+  raw: unknown
+}
+
+export interface LarkListWikiNodesParams {
+  spaceId: string
+  parentNodeToken?: string
+  pageSize?: number
+  pageToken?: string
+}
+
+export interface LarkListWikiNodesResult {
+  spaceId: string
+  parentNodeToken?: string
+  items: LarkWikiNodeSummary[]
   hasMore: boolean
   nextPageToken?: string
   raw: unknown
@@ -267,10 +382,18 @@ export interface LarkReadDocumentContentParams {
 
 export interface LarkReadDocumentContentResult {
   documentId: string
+  documentType: 'doc' | 'docx'
+  sourceRef: string
+  sourceType: LarkDocumentReferenceKind
   title?: string
   url?: string
   content: string
   raw: unknown
+}
+
+export interface LarkReadDocumentContextParams {
+  documentRef: string
+  maxContentLength?: number
 }
 
 export interface LarkReplyMessageParams {

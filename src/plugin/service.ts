@@ -6,6 +6,8 @@ import { LarkDocsService } from '../domains/docs/service.js'
 import { LarkDriveService } from '../domains/drive/service.js'
 import { LarkFilesService } from '../domains/files/service.js'
 import { LarkMessagesService } from '../domains/messages/service.js'
+import { LarkSearchService } from '../domains/search/service.js'
+import { LarkWikiService } from '../domains/wiki/service.js'
 import { getPermissionError as resolvePermissionError } from '../identity/permissions.js'
 import { wrapDomainError } from '../shared/errors.js'
 import { getCapabilityFlags } from '../shared/capabilities.js'
@@ -29,9 +31,15 @@ import type {
   LarkDriveMetaResult,
   LarkListChatsParams,
   LarkListChatsResult,
+  LarkListWikiNodesParams,
+  LarkListWikiNodesResult,
+  LarkListWikiSpacesParams,
+  LarkListWikiSpacesResult,
   LarkPingResult,
   LarkRawRequestParams,
+  LarkResourceContext,
   LarkReadDocumentContentParams,
+  LarkReadDocumentContextParams,
   LarkReadDocumentContentResult,
   LarkReadFileContentParams,
   LarkReadFileContentResult,
@@ -40,13 +48,17 @@ import type {
   LarkReadSessionAttachmentParams,
   LarkReplyMessageParams,
   LarkReplyMessageResult,
+  LarkSearchDocsParams,
+  LarkSearchDocsResult,
   LarkSendMessageParams,
   LarkSendMessageResult,
+  LarkGetWikiNodeParams,
+  LarkGetWikiNodeResult,
   LarkTransferDocumentOwnershipParams,
   LarkTransferDocumentOwnershipResult,
 } from '../shared/types.js'
 
-declare module '@koishijs/core' {
+declare module 'koishi' {
   interface Context {
     larkCenter: LarkCenter
   }
@@ -59,6 +71,8 @@ export class LarkCenter extends Service {
   readonly messages: LarkMessagesService
   readonly bitable: LarkBitableService
   readonly files: LarkFilesService
+  readonly search: LarkSearchService
+  readonly wiki: LarkWikiService
 
   private readonly pluginConfig: Config
 
@@ -70,10 +84,12 @@ export class LarkCenter extends Service {
     const logger = ctx.logger(PLUGIN_NAME)
     this.client = new LarkApiClient(ctx, config, logger)
     this.drive = new LarkDriveService(this.client)
-    this.docs = new LarkDocsService(this.client, this.drive, logger)
+    this.wiki = new LarkWikiService(this.client)
+    this.docs = new LarkDocsService(this.client, this.drive, this.wiki, logger)
     this.messages = new LarkMessagesService(this.client, config)
     this.bitable = new LarkBitableService()
     this.files = new LarkFilesService(this.client, this.drive)
+    this.search = new LarkSearchService(this.client)
   }
 
   getToolDefinitions() {
@@ -136,8 +152,28 @@ export class LarkCenter extends Service {
     return this.docs.readDocumentContent(params)
   }
 
+  readDocumentContext(params: LarkReadDocumentContextParams): Promise<LarkResourceContext> {
+    return this.docs.readDocumentContext(params)
+  }
+
   readFileContent(params: LarkReadFileContentParams): Promise<LarkReadFileContentResult> {
     return this.files.readContent(params)
+  }
+
+  searchDocs(params: LarkSearchDocsParams): Promise<LarkSearchDocsResult> {
+    return this.search.searchDocs(params)
+  }
+
+  listWikiSpaces(params?: LarkListWikiSpacesParams): Promise<LarkListWikiSpacesResult> {
+    return this.wiki.listSpaces(params)
+  }
+
+  getWikiNode(params: LarkGetWikiNodeParams): Promise<LarkGetWikiNodeResult> {
+    return this.wiki.getNode(params)
+  }
+
+  listWikiNodes(params: LarkListWikiNodesParams): Promise<LarkListWikiNodesResult> {
+    return this.wiki.listNodes(params)
   }
 
   readMessageAttachment(params: LarkReadMessageAttachmentParams): Promise<LarkReadMessageAttachmentResult> {

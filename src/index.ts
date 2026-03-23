@@ -42,6 +42,8 @@ export type {
   LarkDocxBlock,
   LarkDocxBlockListData,
   LarkDocxConvertData,
+  LarkDocumentReference,
+  LarkDocumentReferenceKind,
   LarkDocumentSummary,
   LarkDriveMetaResult,
   LarkDriveResourceType,
@@ -52,7 +54,21 @@ export type {
   LarkMessageSendData,
   LarkMethod,
   LarkPingResult,
+  LarkReadDocumentContextParams,
+  LarkSearchDocsParams,
+  LarkSearchDocsResult,
+  LarkSearchDocumentSummary,
+  LarkListWikiSpacesParams,
+  LarkListWikiSpacesResult,
+  LarkWikiSpaceSummary,
+  LarkGetWikiNodeParams,
+  LarkGetWikiNodeResult,
+  LarkListWikiNodesParams,
+  LarkListWikiNodesResult,
+  LarkWikiNodeSummary,
   LarkRawRequestParams,
+  LarkResourceContext,
+  LarkResourceContextType,
   LarkReadDocumentContentParams,
   LarkReadDocumentContentResult,
   LarkReadFileContentParams,
@@ -87,7 +103,8 @@ export function apply(ctx: Context, config: SharedConfig) {
     await chatLunaBridge.sync(Boolean(config.chatlunaEnabled))
   })
 
-  ctx.accept(['chatlunaEnabled'], (nextConfig) => {
+  ctx.accept(['chatlunaEnabled', 'chatlunaContextInjectionEnabled', 'chatlunaContextMaxChars'], (nextConfig) => {
+    chatLunaBridge.updateConfig(nextConfig)
     void chatLunaBridge.sync(Boolean(nextConfig.chatlunaEnabled))
   }, { immediate: true })
 

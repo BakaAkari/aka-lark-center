@@ -24,7 +24,11 @@ import {
   presentReadMessageAttachmentResult,
   presentReadDocumentContentResult,
   presentReplyMessageResult,
+  presentSearchDocsResult,
   presentSendMessageResult,
+  presentWikiNodeListResult,
+  presentWikiNodeResult,
+  presentWikiSpaceListResult,
 } from '../../plugin/presenters.js'
 import { resolveToolContext } from '../../plugin/request-context.js'
 
@@ -148,6 +152,39 @@ function createChatLunaToolInstance(
             })
             return formatToolJson(presentReadMessageAttachmentResult(result), request.output.maxResponseLength)
           }
+          case 'lark_search_docs': {
+            const result = await center.searchDocs({
+              searchKey: expectToolString(input.searchKey, 'searchKey'),
+              count: typeof input.count === 'number' ? input.count : undefined,
+              offset: typeof input.offset === 'number' ? input.offset : undefined,
+              docsTypes: parseCsvInput(input.docsTypes),
+              ownerIds: parseCsvInput(input.ownerIds),
+              chatIds: parseCsvInput(input.chatIds),
+            })
+            return formatToolJson(presentSearchDocsResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_wiki_list_spaces': {
+            const result = await center.listWikiSpaces({
+              pageSize: typeof input.pageSize === 'number' ? input.pageSize : undefined,
+              pageToken: typeof input.pageToken === 'string' ? input.pageToken : undefined,
+            })
+            return formatToolJson(presentWikiSpaceListResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_wiki_get_node': {
+            const result = await center.getWikiNode({
+              token: expectToolString(input.token, 'token'),
+            })
+            return formatToolJson(presentWikiNodeResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_wiki_list_nodes': {
+            const result = await center.listWikiNodes({
+              spaceId: expectToolString(input.spaceId, 'spaceId'),
+              parentNodeToken: typeof input.parentNodeToken === 'string' ? input.parentNodeToken : undefined,
+              pageSize: typeof input.pageSize === 'number' ? input.pageSize : undefined,
+              pageToken: typeof input.pageToken === 'string' ? input.pageToken : undefined,
+            })
+            return formatToolJson(presentWikiNodeListResult(result), request.output.maxResponseLength)
+          }
           case 'lark_list_chats': {
             const result = await center.listChats({
               pageSize: typeof input.pageSize === 'number' ? input.pageSize : undefined,
@@ -219,4 +256,10 @@ function buildChatLunaToolDescription(definition: LarkToolDefinition) {
     `Risk: ${definition.riskLevel}`,
     `Input JSON schema: ${JSON.stringify(definition.inputSchema)}`,
   ].join('\n')
+}
+
+function parseCsvInput(value: unknown) {
+  if (typeof value !== 'string' || !value.trim()) return undefined
+  const items = value.split(',').map(item => item.trim()).filter(Boolean)
+  return items.length ? items : undefined
 }

@@ -14,8 +14,12 @@ import type {
   ReadFileContentPresentation,
   ReadMessageAttachmentPresentation,
   ReplyMessagePresentation,
+  SearchDocsPresentation,
   SendMessagePresentation,
   TransferDocumentOwnershipPresentation,
+  WikiNodeListPresentation,
+  WikiNodePresentation,
+  WikiSpaceListPresentation,
 } from './presenters.js'
 
 export interface ErrorPresentation {
@@ -186,6 +190,93 @@ export function formatReadMessageAttachmentResult(result: ReadMessageAttachmentP
   return `${header}\n\n${truncatedContent}\n...`
 }
 
+export function formatSearchDocsResult(result: SearchDocsPresentation, output: LarkOutputPreferences) {
+  if (!result.items.length) {
+    return `未找到匹配的飞书文档。\nsearch_key: ${result.searchKey}`
+  }
+
+  const header = [
+    '文档搜索完成。',
+    `search_key: ${result.searchKey}`,
+    typeof result.total === 'number' ? `total: ${result.total}` : '',
+  ].filter(Boolean).join('\n')
+
+  const body = result.items.map((item, index) => [
+    `${index + 1}. ${item.title || '(未命名文档)'}`,
+    `docs_type: ${item.docsType || '(unknown)'}`,
+    `docs_token: ${item.docsToken || '(unknown)'}`,
+    item.url ? `url: ${item.url}` : '',
+  ].filter(Boolean).join('\n')).join('\n\n')
+
+  const footer = result.hasMore && typeof result.nextOffset === 'number'
+    ? `\n\nnext_offset: ${result.nextOffset}`
+    : ''
+
+  return truncateBlock(`${header}\n\n${body}${footer}`, output.maxResponseLength)
+}
+
+export function formatWikiSpaceListResult(result: WikiSpaceListPresentation, output: LarkOutputPreferences) {
+  if (!result.items.length) {
+    return '当前没有可访问的知识空间。'
+  }
+
+  const body = result.items.map((item, index) => [
+    `${index + 1}. ${item.name || '(未命名知识空间)'}`,
+    `space_id: ${item.spaceId || '(unknown)'}`,
+    item.description ? `description: ${item.description}` : '',
+  ].filter(Boolean).join('\n')).join('\n\n')
+
+  const footer = result.hasMore && result.nextPageToken
+    ? `\n\nnext_page_token: ${result.nextPageToken}`
+    : ''
+
+  return truncateBlock(`知识空间列表获取成功。\n\n${body}${footer}`, output.maxResponseLength)
+}
+
+export function formatWikiNodeResult(result: WikiNodePresentation) {
+  return [
+    '知识库节点读取成功。',
+    result.title ? `title: ${result.title}` : '',
+    result.spaceId ? `space_id: ${result.spaceId}` : '',
+    result.nodeToken ? `node_token: ${result.nodeToken}` : '',
+    result.parentNodeToken ? `parent_node_token: ${result.parentNodeToken}` : '',
+    result.objType ? `obj_type: ${result.objType}` : '',
+    result.objToken ? `obj_token: ${result.objToken}` : '',
+    typeof result.hasChild === 'boolean' ? `has_child: ${result.hasChild ? 'yes' : 'no'}` : '',
+    result.url ? `url: ${result.url}` : '',
+  ].filter(Boolean).join('\n')
+}
+
+export function formatWikiNodeListResult(result: WikiNodeListPresentation, output: LarkOutputPreferences) {
+  if (!result.items.length) {
+    return [
+      '当前节点下没有子节点。',
+      `space_id: ${result.spaceId}`,
+      result.parentNodeToken ? `parent_node_token: ${result.parentNodeToken}` : '',
+    ].filter(Boolean).join('\n')
+  }
+
+  const header = [
+    '知识库子节点列表获取成功。',
+    `space_id: ${result.spaceId}`,
+    result.parentNodeToken ? `parent_node_token: ${result.parentNodeToken}` : '',
+  ].filter(Boolean).join('\n')
+
+  const body = result.items.map((item, index) => [
+    `${index + 1}. ${item.title || '(未命名节点)'}`,
+    `node_token: ${item.nodeToken || '(unknown)'}`,
+    item.objType ? `obj_type: ${item.objType}` : '',
+    item.objToken ? `obj_token: ${item.objToken}` : '',
+    item.url ? `url: ${item.url}` : '',
+  ].filter(Boolean).join('\n')).join('\n\n')
+
+  const footer = result.hasMore && result.nextPageToken
+    ? `\n\nnext_page_token: ${result.nextPageToken}`
+    : ''
+
+  return truncateBlock(`${header}\n\n${body}${footer}`, output.maxResponseLength)
+}
+
 export function formatSendMessageResult(result: SendMessagePresentation) {
   return [
     '消息发送成功。',
@@ -212,4 +303,9 @@ export function formatAddMessageReactionResult(result: AddMessageReactionPresent
     `emoji_type: ${result.emojiType}`,
     result.reactionId ? `reaction_id: ${result.reactionId}` : '',
   ].filter(Boolean).join('\n')
+}
+
+function truncateBlock(text: string, maxLength: number) {
+  if (text.length <= maxLength) return text
+  return `${text.slice(0, Math.max(maxLength - 4, 0))}\n...`
 }

@@ -14,8 +14,12 @@ import {
   formatReadMessageAttachmentResult,
   formatReadDocumentContentResult,
   formatReplyMessageResult,
+  formatSearchDocsResult,
   formatSendMessageResult,
   formatTransferDocumentOwnershipResult,
+  formatWikiNodeListResult,
+  formatWikiNodeResult,
+  formatWikiSpaceListResult,
 } from './formatters.js'
 import {
   presentAddMessageReactionResult,
@@ -27,8 +31,12 @@ import {
   presentReadMessageAttachmentResult,
   presentReadDocumentContentResult,
   presentReplyMessageResult,
+  presentSearchDocsResult,
   presentSendMessageResult,
   presentTransferDocumentOwnershipResult,
+  presentWikiNodeListResult,
+  presentWikiNodeResult,
+  presentWikiSpaceListResult,
 } from './presenters.js'
 import { resolveCommandContext } from './request-context.js'
 import type { LarkCenter } from './service.js'
@@ -37,6 +45,7 @@ export function registerCommands(ctx: Context, center: LarkCenter, config: Confi
   const root = config.commandName.trim() || 'lark'
 
   ctx.command(root, '飞书 / Lark OpenAPI 工具集合')
+  ctx.command(`${root}.read`, '统一的读取类命令')
 
   ctx.command(`${root}.ping`, '验证飞书凭证并测试 tenant_access_token')
     .userFields(['authority'])
@@ -169,38 +178,51 @@ export function registerCommands(ctx: Context, center: LarkCenter, config: Confi
       }
     })
 
-  ctx.command(`${root}.doc.read <documentId:string>`, '读取飞书文档纯文本内容')
+  const readDocumentAction = async (
+    { session }: { session?: SessionLike },
+    documentRef: string,
+  ) => {
+    const request = resolveCommandContext(center, config, session as SessionLike | undefined)
+    if (!request.permission.granted) return formatCommandError(createPermissionError(request.permission.error ?? '权限不足。'))
+
+    try {
+      const result = await center.readDocumentContent({
+        documentId: documentRef,
+      })
+
+      return formatReadDocumentContentResult(presentReadDocumentContentResult(result), request.output)
+    } catch (error) {
+      return formatCommandError(error)
+    }
+  }
+
+  ctx.command(`${root}.read.doc <documentRef:text>`, '读取飞书文档内容，自动识别 wiki/doc/docx 链接或 token')
     .userFields(['authority'])
-    .action(async ({ session }, documentId) => {
-      const request = resolveCommandContext(center, config, session as SessionLike)
-      if (!request.permission.granted) return formatCommandError(createPermissionError(request.permission.error ?? '权限不足。'))
+    .action(readDocumentAction)
 
-      try {
-        const result = await center.readDocumentContent({
-          documentId,
-        })
-
-        return formatReadDocumentContentResult(presentReadDocumentContentResult(result), request.output)
-      } catch (error) {
-        return formatCommandError(error)
-      }
-    })
-
-  ctx.command(`${root}.file.read [fileToken:text]`, '读取飞书文件文本内容')
+  ctx.command(`${root}.read.file [fileToken:text]`, '读取飞书文件文本内容，未提供 fileToken 时自动尝试读取当前上下文附件')
     .userFields(['authority'])
     .option('fileName', '-n <fileName:string> 文件名，用于辅助识别扩展名')
     .option('mimeType', '-m <mimeType:string> MIME 类型，用于辅助识别内容类型')
+    .option('source', '-s <source:string> 附件来源 auto/current/quote，默认 auto')
     .action(async ({ session, options }, fileToken) => {
-      const resolvedOptions = (options ?? {}) as { fileName?: string, mimeType?: string }
+      const resolvedOptions = (options ?? {}) as { fileName?: string, mimeType?: string, source?: string }
       const request = resolveCommandContext(center, config, session as SessionLike)
       if (!request.permission.granted) return formatCommandError(createPermissionError(request.permission.error ?? '权限不足。'))
 
       try {
         const normalizedInput = typeof fileToken === 'string' ? fileToken.trim() : ''
+        const target = typeof resolvedOptions.source === 'string' && resolvedOptions.source.trim()
+          ? resolvedOptions.source.trim()
+          : 'auto'
+        if (!['auto', 'current', 'quote'].includes(target)) {
+          return formatCommandError(createValidationError('source 必须是 auto/current/quote 之一。'))
+        }
+
         if (!normalizedInput) {
           const result = await center.readSessionAttachment({
             session: session as SessionLike,
-            target: 'auto',
+            target: target as 'auto' | 'current' | 'quote',
             fileName: resolvedOptions.fileName,
             mimeType: resolvedOptions.mimeType,
           })
@@ -230,29 +252,91 @@ export function registerCommands(ctx: Context, center: LarkCenter, config: Confi
       }
     })
 
-  ctx.command(`${root}.file.read-context [source:string]`, '读取当前消息或引用消息中的飞书文件附件文本内容')
+  ctx.command(`${root}.search.docs <searchKey:text>`, '按关键词搜索飞书文档资源')
     .userFields(['authority'])
-    .option('fileName', '-n <fileName:string> 文件名，用于辅助识别扩展名')
-    .option('mimeType', '-m <mimeType:string> MIME 类型，用于辅助识别内容类型')
-    .action(async ({ session, options }, source) => {
-      const resolvedOptions = (options ?? {}) as { fileName?: string, mimeType?: string }
+    .option('count', '-c <count:number> 返回数量，默认 10')
+    .option('offset', '-o <offset:number> 搜索偏移，默认 0')
+    .option('docsTypes', '-t <docsTypes:string> 文档类型过滤，逗号分隔')
+    .option('ownerIds', '-u <ownerIds:string> owner_id 过滤，逗号分隔')
+    .option('chatIds', '-g <chatIds:string> chat_id 过滤，逗号分隔')
+    .action(async ({ session, options }, searchKey) => {
+      const resolvedOptions = (options ?? {}) as {
+        count?: number
+        offset?: number
+        docsTypes?: string
+        ownerIds?: string
+        chatIds?: string
+      }
       const request = resolveCommandContext(center, config, session as SessionLike)
       if (!request.permission.granted) return formatCommandError(createPermissionError(request.permission.error ?? '权限不足。'))
 
       try {
-        const target = typeof source === 'string' && source.trim() ? source.trim() : 'auto'
-        if (!['auto', 'current', 'quote'].includes(target)) {
-          return formatCommandError(createValidationError('source 必须是 auto/current/quote 之一。'))
-        }
-
-        const result = await center.readSessionAttachment({
-          session: session as SessionLike,
-          target: target as 'auto' | 'current' | 'quote',
-          fileName: resolvedOptions.fileName,
-          mimeType: resolvedOptions.mimeType,
+        const result = await center.searchDocs({
+          searchKey,
+          count: resolvedOptions.count,
+          offset: resolvedOptions.offset,
+          docsTypes: parseCsvOption(resolvedOptions.docsTypes),
+          ownerIds: parseCsvOption(resolvedOptions.ownerIds),
+          chatIds: parseCsvOption(resolvedOptions.chatIds),
         })
 
-        return formatReadMessageAttachmentResult(presentReadMessageAttachmentResult(result), request.output)
+        return formatSearchDocsResult(presentSearchDocsResult(result), request.output)
+      } catch (error) {
+        return formatCommandError(error)
+      }
+    })
+
+  ctx.command(`${root}.wiki.space.list`, '列出当前应用可访问的知识空间')
+    .userFields(['authority'])
+    .option('pageSize', '-s <pageSize:number> 每页数量，默认 20')
+    .option('pageToken', '-t <pageToken:string> 分页 token')
+    .action(async ({ session, options }) => {
+      const resolvedOptions = (options ?? {}) as { pageSize?: number, pageToken?: string }
+      const request = resolveCommandContext(center, config, session as SessionLike)
+      if (!request.permission.granted) return formatCommandError(createPermissionError(request.permission.error ?? '权限不足。'))
+
+      try {
+        const result = await center.listWikiSpaces({
+          pageSize: resolvedOptions.pageSize,
+          pageToken: resolvedOptions.pageToken,
+        })
+        return formatWikiSpaceListResult(presentWikiSpaceListResult(result), request.output)
+      } catch (error) {
+        return formatCommandError(error)
+      }
+    })
+
+  ctx.command(`${root}.wiki.node.get <token:string>`, '获取知识库节点信息')
+    .userFields(['authority'])
+    .action(async ({ session }, token) => {
+      const request = resolveCommandContext(center, config, session as SessionLike)
+      if (!request.permission.granted) return formatCommandError(createPermissionError(request.permission.error ?? '权限不足。'))
+
+      try {
+        const result = await center.getWikiNode({ token })
+        return formatWikiNodeResult(presentWikiNodeResult(result))
+      } catch (error) {
+        return formatCommandError(error)
+      }
+    })
+
+  ctx.command(`${root}.wiki.node.list <spaceId:string> [parentNodeToken:string]`, '列出知识空间或父节点下的子节点')
+    .userFields(['authority'])
+    .option('pageSize', '-s <pageSize:number> 每页数量，默认 20')
+    .option('pageToken', '-t <pageToken:string> 分页 token')
+    .action(async ({ session, options }, spaceId, parentNodeToken) => {
+      const resolvedOptions = (options ?? {}) as { pageSize?: number, pageToken?: string }
+      const request = resolveCommandContext(center, config, session as SessionLike)
+      if (!request.permission.granted) return formatCommandError(createPermissionError(request.permission.error ?? '权限不足。'))
+
+      try {
+        const result = await center.listWikiNodes({
+          spaceId,
+          parentNodeToken,
+          pageSize: resolvedOptions.pageSize,
+          pageToken: resolvedOptions.pageToken,
+        })
+        return formatWikiNodeListResult(presentWikiNodeListResult(result), request.output)
       } catch (error) {
         return formatCommandError(error)
       }
@@ -355,4 +439,10 @@ export function registerCommands(ctx: Context, center: LarkCenter, config: Confi
 
       return formatJson(center.getToolDefinitions(), request.output.maxResponseLength)
     })
+}
+
+function parseCsvOption(value?: string) {
+  if (typeof value !== 'string' || !value.trim()) return undefined
+  const items = value.split(',').map(item => item.trim()).filter(Boolean)
+  return items.length ? items : undefined
 }

@@ -34,5 +34,7 @@ export const Config: Schema<PluginConfig> = Schema.intersect([
   }).description('权限控制'),
   Schema.object({
     chatlunaEnabled: Schema.boolean().default(false).description('是否启用内置 ChatLuna 工具桥接。开启后会把飞书工具注册到 ChatLuna，关闭时自动卸载。'),
+    chatlunaContextInjectionEnabled: Schema.boolean().default(true).description('是否在 ChatLuna 对话前自动识别飞书文档链接并注入文档上下文。'),
+    chatlunaContextMaxChars: Schema.number().min(500).max(20000).default(4000).description('自动注入到 ChatLuna 上下文中的飞书文档最大字符数。'),
   }).description('LLM 集成'),
 ])

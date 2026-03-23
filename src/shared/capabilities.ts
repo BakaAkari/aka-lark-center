@@ -7,6 +7,8 @@ export function getCapabilityFlags(config: Config): LarkCapabilityFlags {
     messages: true,
     bitable: false,
     files: true,
+    search: true,
+    wiki: true,
     chatlunaBridge: Boolean(config.chatlunaEnabled),
   }
 }

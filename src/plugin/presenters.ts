@@ -4,7 +4,12 @@ import type {
   LarkChatSummary,
   LarkCreateDocumentResult,
   LarkDocumentSummary,
+  LarkGetWikiNodeResult,
   LarkListChatsResult,
+  LarkListWikiNodesResult,
+  LarkListWikiSpacesResult,
+  LarkSearchDocsResult,
+  LarkSearchDocumentSummary,
   LarkPingResult,
   LarkReadDocumentContentResult,
   LarkReadFileContentResult,
@@ -12,6 +17,8 @@ import type {
   LarkReplyMessageResult,
   LarkSendMessageResult,
   LarkTransferDocumentOwnershipResult,
+  LarkWikiNodeSummary,
+  LarkWikiSpaceSummary,
 } from '../shared/types.js'
 
 export interface PingPresentation {
@@ -81,6 +88,43 @@ export interface ReadMessageAttachmentPresentation {
   extension?: string
   sizeBytes?: number
   text: string
+}
+
+export interface SearchDocsPresentation {
+  searchKey: string
+  items: LarkSearchDocumentSummary[]
+  total?: number
+  hasMore: boolean
+  nextOffset?: number
+  raw: unknown
+}
+
+export interface WikiSpaceListPresentation {
+  items: LarkWikiSpaceSummary[]
+  hasMore: boolean
+  nextPageToken?: string
+  raw: unknown
+}
+
+export interface WikiNodePresentation {
+  ok: true
+  spaceId?: string
+  nodeToken?: string
+  parentNodeToken?: string
+  objToken?: string
+  objType?: string
+  title?: string
+  url?: string
+  hasChild?: boolean
+}
+
+export interface WikiNodeListPresentation {
+  spaceId: string
+  parentNodeToken?: string
+  items: LarkWikiNodeSummary[]
+  hasMore: boolean
+  nextPageToken?: string
+  raw: unknown
 }
 
 export interface SendMessagePresentation {
@@ -197,6 +241,51 @@ export function presentReadMessageAttachmentResult(
     extension: result.extension,
     sizeBytes: result.sizeBytes,
     text: result.text,
+  }
+}
+
+export function presentSearchDocsResult(result: LarkSearchDocsResult): SearchDocsPresentation {
+  return {
+    searchKey: result.searchKey,
+    items: result.items,
+    total: result.total,
+    hasMore: result.hasMore,
+    nextOffset: result.nextOffset,
+    raw: result.raw,
+  }
+}
+
+export function presentWikiSpaceListResult(result: LarkListWikiSpacesResult): WikiSpaceListPresentation {
+  return {
+    items: result.items,
+    hasMore: result.hasMore,
+    nextPageToken: result.nextPageToken,
+    raw: result.raw,
+  }
+}
+
+export function presentWikiNodeResult(result: LarkGetWikiNodeResult): WikiNodePresentation {
+  return {
+    ok: true,
+    spaceId: result.spaceId,
+    nodeToken: result.nodeToken,
+    parentNodeToken: result.parentNodeToken,
+    objToken: result.objToken,
+    objType: result.objType,
+    title: result.title,
+    url: result.url,
+    hasChild: result.hasChild,
+  }
+}
+
+export function presentWikiNodeListResult(result: LarkListWikiNodesResult): WikiNodeListPresentation {
+  return {
+    spaceId: result.spaceId,
+    parentNodeToken: result.parentNodeToken,
+    items: result.items,
+    hasMore: result.hasMore,
+    nextPageToken: result.nextPageToken,
+    raw: result.raw,
   }
 }
 

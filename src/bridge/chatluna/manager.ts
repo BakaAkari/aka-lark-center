@@ -3,21 +3,27 @@ import type { LarkCenter } from '../../plugin/service.js'
 import { CHATLUNA_BRIDGE_PLATFORM_NAME } from '../../shared/constants.js'
 import { formatErrorMessage } from '../../shared/utils.js'
 import type { Config } from '../../shared/types.js'
+import { installChatLunaContextInjection } from './context-injection.js'
 import type { ChatLunaPluginLike, ChatLunaServiceLike } from './runtime.js'
 import { loadChatLunaRuntime } from './runtime.js'
 import { registerChatLunaTools } from './tools.js'
 
 export class ChatLunaBridgeManager {
   private chatLunaPlugin?: ChatLunaPluginLike
+  private contextInjectionDispose?: () => void
   private warnedUnavailable = false
   private syncQueue: Promise<void> = Promise.resolve()
 
   constructor(
     private readonly ctx: Context,
     private readonly center: LarkCenter,
-    private readonly config: Config,
+    private config: Config,
     private readonly logger: ReturnType<Context['logger']>,
   ) {}
+
+  updateConfig(config: Config) {
+    this.config = config
+  }
 
   sync(enabled: boolean) {
     this.syncQueue = this.syncQueue
@@ -37,9 +43,28 @@ export class ChatLunaBridgeManager {
   }
 
   private async enable() {
-    if (this.chatLunaPlugin) return
-
     const chatlunaService = this.getChatLunaService()
+    if (!chatlunaService) {
+      if (!this.warnedUnavailable) {
+        this.logger.warn('ChatLuna bridge enabled, but ChatLuna service is not available. Install and enable ChatLuna first.')
+        this.warnedUnavailable = true
+      }
+      return
+    }
+
+    if (this.config.chatlunaContextInjectionEnabled && !this.contextInjectionDispose) {
+      this.contextInjectionDispose = installChatLunaContextInjection(this.ctx, this.center, this.config, this.logger)
+    }
+    if (!this.config.chatlunaContextInjectionEnabled && this.contextInjectionDispose) {
+      this.contextInjectionDispose()
+      this.contextInjectionDispose = undefined
+    }
+
+    if (this.chatLunaPlugin) {
+      this.warnedUnavailable = false
+      return
+    }
+
     const runtime = await loadChatLunaRuntime().catch((error) => {
       if (!this.warnedUnavailable) {
         this.logger.warn('ChatLuna bridge enabled but runtime modules are unavailable: %s', formatErrorMessage(error))
@@ -47,14 +72,7 @@ export class ChatLunaBridgeManager {
       }
       return null
     })
-
-    if (!chatlunaService || !runtime) {
-      if (!this.warnedUnavailable) {
-        this.logger.warn('ChatLuna bridge enabled, but ChatLuna service is not available. Install and enable ChatLuna first.')
-        this.warnedUnavailable = true
-      }
-      return
-    }
+    if (!runtime) return
 
     const existing = chatlunaService.getPlugin?.(CHATLUNA_BRIDGE_PLATFORM_NAME)
     if (existing) {
@@ -71,11 +89,15 @@ export class ChatLunaBridgeManager {
     }
 
     this.chatLunaPlugin = plugin
+
     this.warnedUnavailable = false
     this.logger.info('ChatLuna bridge enabled with %s tools.', this.center.getToolDefinitions().length)
   }
 
   private async disable() {
+    this.contextInjectionDispose?.()
+    this.contextInjectionDispose = undefined
+
     if (!this.chatLunaPlugin) return
 
     const plugin = this.chatLunaPlugin
