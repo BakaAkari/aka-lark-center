@@ -107,13 +107,17 @@ export function apply(ctx: Context, config: SharedConfig) {
 
   registerCommands(ctx, center, config)
 
-  ctx.on('ready', async () => {
+  // 等待 chatluna 服务可用后再同步
+  ctx.inject(['chatluna'], async (ctx) => {
     await chatLunaBridge.sync(Boolean(config.chatlunaEnabled))
   })
 
   ctx.accept(['chatlunaEnabled', 'chatlunaContextInjectionEnabled', 'chatlunaContextMaxChars'], (nextConfig) => {
     chatLunaBridge.updateConfig(nextConfig)
-    void chatLunaBridge.sync(Boolean(nextConfig.chatlunaEnabled))
+    // 只在 chatluna 服务可用时同步
+    if ((ctx as Context & { chatluna?: unknown }).chatluna) {
+      void chatLunaBridge.sync(Boolean(nextConfig.chatlunaEnabled))
+    }
   }, { immediate: true })
 
   ctx.on('dispose', async () => {
