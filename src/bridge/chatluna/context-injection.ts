@@ -7,14 +7,21 @@ import {
   formatLarkResourceContextBlock,
   formatLarkResourceErrorBlock,
   prependContextBlockToMessage,
+  truncateResourceContent,
 } from '../../shared/resource-context.js'
 import { formatErrorMessage } from '../../shared/utils.js'
-import type { Config, LarkKnowledgeLookupResult, SessionLike } from '../../shared/types.js'
+import type {
+  Config,
+  LarkKnowledgeLookupResult,
+  LarkResourceContext,
+  SessionLike,
+} from '../../shared/types.js'
 import {
   buildAutomaticKnowledgeLookupParams,
   looksLikeKnowledgeLookupQuestion,
   looksLikeKnowledgeScopeStatement,
 } from './knowledge-strategy.js'
+import { summarizeChatLunaSession } from './session-diagnostics.js'
 
 interface ChatLunaHumanMessageLike {
   content?: unknown
@@ -52,7 +59,19 @@ export function installChatLunaContextInjection(
 
     const originalText = getMessageText(message) || getSessionText(session)
     logger.debug('chatluna before-chat hook, messageContentType=%s, hasPromptVariables=%s', describeContentShape(message.content), promptVariables ? 'yes' : 'no')
+    logger.debug('chatluna before-chat session=%o', summarizeChatLunaSession(session))
     if (!originalText || hasLarkContextBlock(originalText)) return
+
+    const attachmentHandled = await tryInjectAttachmentContext(
+      center,
+      config,
+      logger,
+      message,
+      session,
+      promptVariables,
+      originalText,
+    )
+    if (attachmentHandled) return
 
     const references = extractLarkDocumentReferences(originalText)
     logger.debug('lark context injection candidates=%s', references.length)
@@ -280,6 +299,61 @@ function injectKnowledgeScope(
   }
 }
 
+async function tryInjectAttachmentContext(
+  center: LarkCenter,
+  config: Config,
+  logger: ReturnType<Context['logger']>,
+  message: ChatLunaHumanMessageLike,
+  session: SessionLike | undefined,
+  promptVariables: ChatLunaPromptVariablesLike | null,
+  originalText: string,
+) {
+  const plan = buildAutomaticAttachmentPlan(session, originalText)
+  if (!plan) return false
+
+  const request = resolveCommandContext(center, config, session)
+  if (!request.permission.granted) {
+    injectError(message, promptVariables, request.permission.error || '权限不足，无法自动读取飞书文件附件。')
+    return true
+  }
+
+  try {
+    logger.debug(
+      'auto-reading Lark attachment for context, target=%s, fileName=%s',
+      plan.target,
+      plan.fileName || '(unknown)',
+    )
+    const result = await center.readSessionAttachment({
+      session,
+      target: plan.target,
+      fileName: plan.fileName,
+      mimeType: plan.mimeType,
+    })
+    const resourceContext = toAttachmentResourceContext(result, config.chatlunaContextMaxChars)
+    const contextBlock = formatLarkResourceContextBlock(resourceContext)
+    injectContext(message, session, promptVariables, contextBlock, resourceContext, plan.userQuestion)
+    logger.debug(
+      'lark attachment context injected, target=%s, contextSource=%s, fileName=%s, contentLength=%s, truncated=%s',
+      plan.target,
+      result.contextSource || 'unknown',
+      result.fileName || '(unknown)',
+      resourceContext.contentLength,
+      resourceContext.truncated ? 'yes' : 'no',
+    )
+  } catch (error) {
+    logger.warn('failed to auto-read Lark attachment context: %s', formatErrorMessage(error))
+    injectAttachmentReadError(
+      message,
+      session,
+      promptVariables,
+      plan.userQuestion,
+      formatErrorMessage(error),
+    )
+  }
+
+  return true
+}
+
 function asHumanMessage(input: unknown) {
   return input && typeof input === 'object'
     ? input as ChatLunaHumanMessageLike
@@ -429,4 +503,154 @@ function buildKnowledgeScopeBlock() {
     'If the user asks to search all accessible Feishu documents, understand that they mean this current authorized scope.',
     '[/LARK_KNOWLEDGE_SCOPE]',
   ].join('\n')
+}
+
+interface AutomaticAttachmentPlan {
+  target: 'current' | 'quote'
+  userQuestion: string
+  fileName?: string
+  mimeType?: string
+}
+
+function buildAutomaticAttachmentPlan(session: SessionLike | undefined, originalText: string): AutomaticAttachmentPlan | null {
+  const currentFile = getCurrentLarkFileMeta(session)
+  if (currentFile) {
+    return {
+      target: 'current',
+      fileName: currentFile.fileName,
+      mimeType: currentFile.mimeType,
+      userQuestion: buildAttachmentUserQuestion(originalText, 'current'),
+    }
+  }
+
+  if (hasQuotedFileAttachment(session) && looksLikeAttachmentReadRequest(originalText)) {
+    return {
+      target: 'quote',
+      userQuestion: buildAttachmentUserQuestion(originalText, 'quote'),
+    }
+  }
+
+  return null
+}
+
+function getCurrentLarkFileMeta(session?: SessionLike) {
+  const rawMessage = ((session as SessionLike & {
+    lark?: {
+      event?: {
+        message?: {
+          message_type?: string
+          content?: string
+        }
+      }
+    }
+  })?.lark?.event?.message)
+
+  if (rawMessage?.message_type !== 'file') return null
+  if (typeof rawMessage.content !== 'string' || !rawMessage.content.trim()) return null
+
+  try {
+    const parsed = JSON.parse(rawMessage.content) as { file_name?: unknown, mime_type?: unknown }
+    return {
+      fileName: typeof parsed.file_name === 'string' ? parsed.file_name.trim() || undefined : undefined,
+      mimeType: typeof parsed.mime_type === 'string' ? parsed.mime_type.trim() || undefined : undefined,
+    }
+  } catch {
+    return {}
+  }
+}
+
+function hasQuotedFileAttachment(session?: SessionLike) {
+  const quote = session?.quote
+  if (!quote) return false
+  if (typeof quote.content === 'string' && /<file\b/i.test(quote.content)) return true
+  return Array.isArray(quote.elements) && quote.elements.some((element) => {
+    return Boolean(element && typeof element === 'object' && (element as { type?: unknown }).type === 'file')
+  })
+}
+
+function looksLikeAttachmentReadRequest(text: string) {
+  const normalized = text.trim().toLowerCase()
+  if (!normalized) return false
+
+  return [
+    /读.*文件/,
+    /读取.*文件/,
+    /看.*文件/,
+    /看看.*附件/,
+    /总结.*文件/,
+    /分析.*文件/,
+    /read .*file/,
+    /read this file/,
+    /read the file/,
+    /attachment/,
+  ].some((pattern) => pattern.test(normalized))
+}
+
+function buildAttachmentUserQuestion(text: string, source: 'current' | 'quote') {
+  const normalized = text.trim()
+  if (!normalized || isStandaloneFileTag(normalized)) {
+    return source === 'current'
+      ? '用户刚刚发送了一个飞书文件附件。请先说明你已读取该文件；如果内容适合直接概括，请给出简短摘要，然后询问用户接下来想怎么处理。'
+      : '用户刚刚引用了一条飞书文件消息。请先说明你已读取该文件；如果内容适合直接概括，请给出简短摘要，然后询问用户接下来想怎么处理。'
+  }
+
+  return normalized
+}
+
+function isStandaloneFileTag(text: string) {
+  return /^<file\b[\s\S]*\/>$/.test(text.trim())
+}
+
+function toAttachmentResourceContext(
+  result: {
+    messageId: string
+    fileKey: string
+    fileName?: string
+    text: string
+  },
+  maxLength: number,
+): LarkResourceContext {
+  const truncated = truncateResourceContent(result.text, maxLength)
+  return {
+    type: 'file',
+    sourceRef: `message:${result.messageId}/resource:${result.fileKey}`,
+    resolvedToken: result.fileKey,
+    resolvedType: 'file',
+    title: result.fileName,
+    content: truncated.content,
+    truncated: truncated.truncated,
+    contentLength: truncated.contentLength,
+    permissionState: 'granted',
+  }
+}
+
+function injectAttachmentReadError(
+  message: ChatLunaHumanMessageLike,
+  session: SessionLike | undefined,
+  promptVariables: ChatLunaPromptVariablesLike | null,
+  userQuestion: string,
+  errorMessage: string,
+) {
+  const contextBlock = [
+    '[LARK_RESOURCE_CONTEXT]',
+    'status: error',
+    `error: ${errorMessage}`,
+    'instruction: The current Feishu/Lark file attachment was detected, but aka-lark-center failed to read it as a supported text-like attachment.',
+    'instruction: Explain the direct-read failure clearly. If the file is not a supported text-like format, ask the user to resend it as txt/md/json/csv or provide the relevant text content directly.',
+    '[/LARK_RESOURCE_CONTEXT]',
+  ].join('\n')
+
+  const nextContent = prependContextBlockToMessage(userQuestion, contextBlock)
+  setAugmentedMessageContent(message, message.content, contextBlock, nextContent)
+
+  if (session) {
+    session.content = userQuestion
+  }
+
+  if (promptVariables) {
+    promptVariables.larkResourceContext = contextBlock
+    promptVariables.larkResourceContextError = errorMessage
+    promptVariables.input = nextContent
+    promptVariables.userInput = userQuestion
+  }
 }

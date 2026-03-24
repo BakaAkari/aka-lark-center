@@ -2,6 +2,7 @@ import { LARK_TOOL_DEFINITIONS } from '../../shared/tool-definitions.js'
 import { createPermissionError, createUnsupportedError, createValidationError } from '../../shared/errors.js'
 import {
   expectToolString,
+  formatErrorMessage,
   formatToolJson,
   resolveDriveMemberPermission,
 } from '../../shared/utils.js'
@@ -35,12 +36,14 @@ import {
   presentWikiSpaceListResult,
 } from '../../plugin/presenters.js'
 import { resolveToolContext } from '../../plugin/request-context.js'
+import { summarizeChatLunaSession } from './session-diagnostics.js'
 
 export function registerChatLunaTools(
   plugin: ChatLunaPluginLike,
   StructuredTool: StructuredToolConstructor,
   center: LarkCenter,
   config: Config,
+  logger: { debug: (...args: any[]) => void, warn: (...args: any[]) => void },
 ) {
   for (const definition of LARK_TOOL_DEFINITIONS) {
     plugin.registerTool(definition.name, {
@@ -51,7 +54,7 @@ export function registerChatLunaTools(
         return resolveToolContext(center, config, session).permission.granted
       },
       createTool() {
-        return createChatLunaToolInstance(StructuredTool, definition, center, config)
+        return createChatLunaToolInstance(StructuredTool, definition, center, config, logger)
       },
     })
   }
@@ -62,6 +65,7 @@ function createChatLunaToolInstance(
   definition: LarkToolDefinition,
   center: LarkCenter,
   config: Config,
+  logger: { debug: (...args: any[]) => void, warn: (...args: any[]) => void },
 ) {
   const toolDescription = buildChatLunaToolDescription(definition)
 
@@ -167,12 +171,26 @@ function createChatLunaToolInstance(
               throw createValidationError('source must be one of auto/current/quote.')
             }
 
+            logger.debug(
+              'lark_read_context_file invoked, source=%s, input=%o, session=%o',
+              source,
+              input,
+              summarizeChatLunaSession(runtimeConfig?.configurable?.session),
+            )
+
             const result = await center.readSessionAttachment({
               session: runtimeConfig?.configurable?.session,
               target: source as 'auto' | 'current' | 'quote',
               fileName: typeof input.fileName === 'string' ? input.fileName : undefined,
               mimeType: typeof input.mimeType === 'string' ? input.mimeType : undefined,
             })
+            logger.debug(
+              'lark_read_context_file resolved, source=%s, contextSource=%s, messageId=%s, fileKey=%s',
+              source,
+              result.contextSource || 'unknown',
+              result.messageId,
+              result.fileKey,
+            )
             return formatToolJson(presentReadMessageAttachmentResult(result), request.output.maxResponseLength)
           }
           case 'lark_query_docs_search': {
@@ -291,6 +309,14 @@ function createChatLunaToolInstance(
             })
         }
       } catch (error) {
+        if (definition.name === 'lark_read_context_file') {
+          logger.warn(
+            'lark_read_context_file failed, input=%o, session=%o, error=%s',
+            input,
+            summarizeChatLunaSession(runtimeConfig?.configurable?.session),
+            formatErrorMessage(error),
+          )
+        }
         return formatToolError(definition.name, error, request.output)
       }
     }

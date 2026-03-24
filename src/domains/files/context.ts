@@ -57,7 +57,7 @@ export function getSessionAttachmentCandidates(session?: SessionLike): LarkAttac
     candidates.push(candidate)
   }
 
-  return candidates
+  return dedupeAttachmentCandidates(candidates)
 }
 
 function getCurrentMessageAttachmentCandidate(session?: SessionLike): LarkAttachmentCandidate | null {
@@ -72,41 +72,39 @@ function getCurrentMessageAttachmentCandidate(session?: SessionLike): LarkAttach
       }
     }
   })?.lark?.event?.message
+  const rawMessageId = normalizeString(rawMessage?.message_id)
+  const rawContent = normalizeString(rawMessage?.content)
 
-  if (!rawMessage || rawMessage.message_type !== 'file') return null
-  if (typeof rawMessage.message_id !== 'string' || !rawMessage.message_id.trim()) return null
-  if (typeof rawMessage.content !== 'string' || !rawMessage.content.trim()) return null
-
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(rawMessage.content)
-  } catch {
-    return null
+  if (rawMessage?.message_type === 'file' && rawMessageId && rawContent) {
+    const rawCandidate = parseAttachmentCandidateFromRawMessage(rawMessageId, rawContent)
+    if (rawCandidate) return rawCandidate
   }
 
-  const fileKey = typeof (parsed as { file_key?: unknown })?.file_key === 'string'
-    ? (parsed as { file_key: string }).file_key.trim()
-    : ''
-  if (!fileKey) return null
-
-  return {
-    source: 'current',
-    messageId: rawMessage.message_id.trim(),
-    fileKey,
-  }
+  return parseAttachmentCandidateFromContent(
+    'current',
+    typeof session?.content === 'string' ? session.content : undefined,
+    rawMessageId || normalizeString(session?.messageId),
+  )
 }
 
 function getQuotedMessageAttachmentCandidates(session?: SessionLike): LarkAttachmentCandidate[] {
   const quote = session?.quote
   const elements = Array.isArray(quote?.elements) ? quote.elements : []
-  const messageId = quote?.id || quote?.messageId
-  if (typeof messageId !== 'string' || !messageId.trim()) return []
+  const messageId = normalizeString(quote?.id || quote?.messageId)
+  const fallbackCandidate = parseAttachmentCandidateFromContent(
+    'quote',
+    typeof quote?.content === 'string' ? quote.content : undefined,
+    messageId,
+  )
 
   const candidates: LarkAttachmentCandidate[] = []
-  for (const element of elements) {
-    const candidate = parseQuotedAttachmentElement(messageId.trim(), element)
-    if (candidate) candidates.push(candidate)
+  if (messageId) {
+    for (const element of elements) {
+      const candidate = parseQuotedAttachmentElement(messageId, element)
+      if (candidate) candidates.push(candidate)
+    }
   }
+  if (fallbackCandidate) candidates.push(fallbackCandidate)
 
   return candidates
 }
@@ -164,4 +162,57 @@ function parseMessageResourceUrl(resourceUrl: string): LarkMessageAttachmentRefe
   } catch {
     return null
   }
+}
+
+function parseAttachmentCandidateFromRawMessage(messageId: string, content: string): LarkAttachmentCandidate | null {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(content)
+  } catch {
+    return null
+  }
+
+  const fileKey = normalizeString((parsed as { file_key?: unknown })?.file_key)
+  if (!fileKey) return null
+
+  return {
+    source: 'current',
+    messageId,
+    fileKey,
+  }
+}
+
+function parseAttachmentCandidateFromContent(
+  source: LarkSessionAttachmentSource,
+  content?: string,
+  messageIdHint?: string,
+): LarkAttachmentCandidate | null {
+  const normalizedContent = normalizeString(content)
+  if (!normalizedContent) return null
+
+  const parsed = parseAttachmentReferenceInput(normalizedContent)
+  if (!parsed || parsed.type !== 'file') return null
+
+  const normalizedHint = normalizeString(messageIdHint)
+  if (normalizedHint && parsed.messageId !== normalizedHint) return null
+
+  return {
+    source,
+    messageId: normalizedHint || parsed.messageId,
+    fileKey: parsed.fileKey,
+  }
+}
+
+function dedupeAttachmentCandidates(candidates: LarkAttachmentCandidate[]): LarkAttachmentCandidate[] {
+  const seen = new Set<string>()
+  return candidates.filter((candidate) => {
+    const key = `${candidate.source}:${candidate.messageId}:${candidate.fileKey}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+function normalizeString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }

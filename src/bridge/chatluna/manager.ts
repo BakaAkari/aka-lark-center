@@ -82,7 +82,7 @@ export class ChatLunaBridgeManager {
     }
 
     const plugin = new runtime.ChatLunaPlugin(this.ctx, {}, CHATLUNA_BRIDGE_PLATFORM_NAME, false)
-    registerChatLunaTools(plugin, runtime.StructuredTool, this.center, this.config)
+    registerChatLunaTools(plugin, runtime.StructuredTool, this.center, this.config, this.logger)
 
     if (!chatlunaService.getPlugin?.(CHATLUNA_BRIDGE_PLATFORM_NAME)) {
       await Promise.resolve(chatlunaService.installPlugin(plugin))
