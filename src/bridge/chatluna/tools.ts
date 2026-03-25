@@ -20,6 +20,7 @@ import {
   presentAddMessageReactionResult,
   presentAppendDocumentContentResult,
   presentBitableCreateRecordResult,
+  presentBitableListFieldsResult,
   presentBitableListTablesResult,
   presentBitableQueryRecordsResult,
   presentBitableUpdateRecordResult,
@@ -393,6 +394,16 @@ function createChatLunaToolInstance(
               fields: (input.fields ?? {}) as Record<string, unknown>,
             })
             return formatToolJson(presentBitableUpdateRecordResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_bitable_list_fields': {
+            const result = await center.listBitableFields({
+              appToken: expectToolString(input.appToken, 'appToken'),
+              tableId: expectToolString(input.tableId, 'tableId'),
+              viewId: typeof input.viewId === 'string' ? input.viewId : undefined,
+              pageSize: typeof input.pageSize === 'number' ? input.pageSize : undefined,
+              pageToken: typeof input.pageToken === 'string' ? input.pageToken : undefined,
+            })
+            return formatToolJson(presentBitableListFieldsResult(result), request.output.maxResponseLength)
           }
           case 'lark_calendar_list_events': {
             const result = await center.listCalendarEvents({

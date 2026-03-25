@@ -2,6 +2,8 @@ import type {
   LarkAddMessageReactionResult,
   LarkAppendDocumentContentResult,
   LarkBitableCreateRecordResult,
+  LarkBitableFieldSummary,
+  LarkBitableListFieldsResult,
   LarkBitableListTablesResult,
   LarkBitableQueryRecordsResult,
   LarkBitableTableSummary,
@@ -542,6 +544,24 @@ export function presentBitableCreateRecordResult(result: LarkBitableCreateRecord
     ok: true,
     recordId: result.recordId,
     fields: result.fields,
+  }
+}
+
+export interface BitableListFieldsPresentation {
+  ok: boolean
+  items: LarkBitableFieldSummary[]
+  hasMore: boolean
+  nextPageToken?: string
+  total?: number
+}
+
+export function presentBitableListFieldsResult(result: LarkBitableListFieldsResult): BitableListFieldsPresentation {
+  return {
+    ok: true,
+    items: result.items,
+    hasMore: result.hasMore,
+    nextPageToken: result.nextPageToken,
+    total: result.total,
   }
 }
 

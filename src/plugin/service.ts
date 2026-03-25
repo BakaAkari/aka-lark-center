@@ -29,6 +29,8 @@ import type {
   LarkBatchGetDriveMetasResult,
   LarkBitableCreateRecordParams,
   LarkBitableCreateRecordResult,
+  LarkBitableListFieldsParams,
+  LarkBitableListFieldsResult,
   LarkBitableListTablesParams,
   LarkBitableListTablesResult,
   LarkBitableQueryRecordsParams,
@@ -300,6 +302,10 @@ export class LarkCenter extends Service {
 
   updateBitableRecord(params: LarkBitableUpdateRecordParams): Promise<LarkBitableUpdateRecordResult> {
     return this.bitable.updateRecord(params)
+  }
+
+  listBitableFields(params: LarkBitableListFieldsParams): Promise<LarkBitableListFieldsResult> {
+    return this.bitable.listFields(params)
   }
 
   listCalendarEvents(params: LarkCalendarListEventsParams): Promise<LarkCalendarListEventsResult> {

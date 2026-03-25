@@ -650,6 +650,32 @@ export interface LarkDownloadFileResult {
 
 // ── Bitable ──────────────────────────────────────────────────────────────────
 
+export interface LarkBitableFieldSummary {
+  fieldId: string
+  fieldName: string
+  type: number
+  typeName?: string
+  uiType?: string
+  isPrimary?: boolean
+  description?: string
+}
+
+export interface LarkBitableListFieldsParams {
+  appToken: string
+  tableId: string
+  viewId?: string
+  pageSize?: number
+  pageToken?: string
+}
+
+export interface LarkBitableListFieldsResult {
+  items: LarkBitableFieldSummary[]
+  hasMore: boolean
+  nextPageToken?: string
+  total?: number
+  raw?: unknown
+}
+
 export interface LarkBitableTableSummary {
   tableId: string
   name?: string

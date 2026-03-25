@@ -703,6 +703,38 @@ export const LARK_TOOL_DEFINITIONS: LarkToolDefinition[] = [
       required: ['appToken', 'tableId', 'recordId', 'fields'],
     },
   },
+  {
+    name: 'lark_bitable_list_fields',
+    description: 'List all fields (columns) in a Feishu Bitable table.',
+    usage: 'Use this to discover the schema of a Bitable table before querying or writing records. Returns field names, types, and metadata. appToken is the Bitable app token; tableId is the table ID from lark_bitable_list_tables.',
+    riskLevel: 'low',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        appToken: {
+          type: 'string',
+          description: 'Bitable app token.',
+        },
+        tableId: {
+          type: 'string',
+          description: 'Target table ID.',
+        },
+        viewId: {
+          type: 'string',
+          description: 'Optional view ID to filter fields visible in that view.',
+        },
+        pageSize: {
+          type: 'number',
+          description: 'Number of fields per page (max 100).',
+        },
+        pageToken: {
+          type: 'string',
+          description: 'Pagination token from a previous response.',
+        },
+      },
+      required: ['appToken', 'tableId'],
+    },
+  },
   // ── Calendar ───────────────────────────────────────────────────────────────
   {
     name: 'lark_calendar_list_events',
