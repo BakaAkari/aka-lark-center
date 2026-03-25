@@ -2,6 +2,8 @@ import type { Context } from 'koishi'
 import { Service } from 'koishi'
 import { LarkApiClient } from '../client/request.js'
 import { LarkBitableService } from '../domains/bitable/service.js'
+import { LarkCalendarService } from '../domains/calendar/service.js'
+import { LarkContactService } from '../domains/contact/service.js'
 import { LarkDocsService } from '../domains/docs/service.js'
 import { LarkDriveService } from '../domains/drive/service.js'
 import { LarkFilesService } from '../domains/files/service.js'
@@ -9,6 +11,7 @@ import { LarkKnowledgeService } from '../domains/knowledge/service.js'
 import { LarkMessagesService } from '../domains/messages/service.js'
 import { LarkResourceService } from '../domains/resources/service.js'
 import { LarkSearchService } from '../domains/search/service.js'
+import { LarkTasksService } from '../domains/tasks/service.js'
 import { LarkWikiService } from '../domains/wiki/service.js'
 import { getPermissionError as resolvePermissionError } from '../identity/permissions.js'
 import { wrapDomainError } from '../shared/errors.js'
@@ -24,11 +27,37 @@ import type {
   LarkAppendDocumentContentResult,
   LarkBatchGetDriveMetasParams,
   LarkBatchGetDriveMetasResult,
+  LarkBitableCreateRecordParams,
+  LarkBitableCreateRecordResult,
+  LarkBitableListTablesParams,
+  LarkBitableListTablesResult,
   LarkBitableQueryRecordsParams,
   LarkBitableQueryRecordsResult,
+  LarkBitableUpdateRecordParams,
+  LarkBitableUpdateRecordResult,
+  LarkCalendarCreateEventParams,
+  LarkCalendarCreateEventResult,
+  LarkCalendarListEventsParams,
+  LarkCalendarListEventsResult,
+  LarkCalendarUpdateEventParams,
+  LarkCalendarUpdateEventResult,
   LarkCapabilityFlags,
+  LarkContactGetUserParams,
+  LarkContactGetUserResult,
+  LarkContactSearchUserParams,
+  LarkContactSearchUserResult,
   LarkCreateDocumentParams,
   LarkCreateDocumentResult,
+  LarkCreateWikiNodeParams,
+  LarkCreateWikiNodeResult,
+  LarkDeleteDocumentBlocksParams,
+  LarkDeleteDocumentBlocksResult,
+  LarkDeleteMessageParams,
+  LarkDeleteMessageResult,
+  LarkDeleteMessageReactionParams,
+  LarkDeleteMessageReactionResult,
+  LarkDeleteWikiNodeParams,
+  LarkDeleteWikiNodeResult,
   LarkGetDriveMetaParams,
   LarkDriveRootFolderResult,
   LarkDriveMetaResult,
@@ -36,6 +65,8 @@ import type {
   LarkListChatsResult,
   LarkListDriveFilesParams,
   LarkListDriveFilesResult,
+  LarkListMessagesParams,
+  LarkListMessagesResult,
   LarkListWikiNodesParams,
   LarkListWikiNodesResult,
   LarkListWikiSpacesParams,
@@ -45,6 +76,8 @@ import type {
   LarkPingResult,
   LarkRawRequestParams,
   LarkResourceContext,
+  LarkReadDocumentBlocksParams,
+  LarkReadDocumentBlocksResult,
   LarkReadDocumentContentParams,
   LarkReadDocumentContextParams,
   LarkReadDocumentContentResult,
@@ -59,10 +92,18 @@ import type {
   LarkSearchDocsResult,
   LarkSendMessageParams,
   LarkSendMessageResult,
+  LarkTaskCreateParams,
+  LarkTaskCreateResult,
+  LarkTaskListParams,
+  LarkTaskListResult,
+  LarkTaskUpdateParams,
+  LarkTaskUpdateResult,
   LarkGetWikiNodeParams,
   LarkGetWikiNodeResult,
   LarkTransferDocumentOwnershipParams,
   LarkTransferDocumentOwnershipResult,
+  LarkUpdateMessageParams,
+  LarkUpdateMessageResult,
 } from '../shared/types.js'
 
 declare module 'koishi' {
@@ -77,8 +118,11 @@ export class LarkCenter extends Service {
   readonly docs: LarkDocsService
   readonly messages: LarkMessagesService
   readonly bitable: LarkBitableService
+  readonly calendar: LarkCalendarService
+  readonly contact: LarkContactService
   readonly files: LarkFilesService
   readonly search: LarkSearchService
+  readonly tasks: LarkTasksService
   readonly wiki: LarkWikiService
   readonly resources: LarkResourceService
   readonly knowledge: LarkKnowledgeService
@@ -96,7 +140,10 @@ export class LarkCenter extends Service {
     this.wiki = new LarkWikiService(this.client)
     this.docs = new LarkDocsService(this.client, this.drive, logger)
     this.messages = new LarkMessagesService(this.client, config)
-    this.bitable = new LarkBitableService()
+    this.bitable = new LarkBitableService(this.client)
+    this.calendar = new LarkCalendarService(this.client)
+    this.contact = new LarkContactService(this.client)
+    this.tasks = new LarkTasksService(this.client)
     this.files = new LarkFilesService(this.client, this.drive)
     this.search = new LarkSearchService(this.client)
     this.resources = new LarkResourceService(this.client, this.drive, this.wiki)
@@ -167,6 +214,10 @@ export class LarkCenter extends Service {
     return this.docs.appendDocumentContent(params)
   }
 
+  readDocumentBlocks(params: LarkReadDocumentBlocksParams): Promise<LarkReadDocumentBlocksResult> {
+    return this.docs.readDocumentBlocks(params)
+  }
+
   readDocumentContent(params: LarkReadDocumentContentParams): Promise<LarkReadDocumentContentResult> {
     return this.resources.readDocumentContent(params)
   }
@@ -215,11 +266,83 @@ export class LarkCenter extends Service {
     return this.messages.addMessageReaction(params)
   }
 
+  updateMessage(params: LarkUpdateMessageParams): Promise<LarkUpdateMessageResult> {
+    return this.messages.updateMessage(params)
+  }
+
+  deleteMessage(params: LarkDeleteMessageParams): Promise<LarkDeleteMessageResult> {
+    return this.messages.deleteMessage(params)
+  }
+
+  deleteDocumentBlocks(params: LarkDeleteDocumentBlocksParams): Promise<LarkDeleteDocumentBlocksResult> {
+    return this.docs.deleteDocumentBlocks(params)
+  }
+
+  deleteWikiNode(params: LarkDeleteWikiNodeParams): Promise<LarkDeleteWikiNodeResult> {
+    return this.wiki.deleteNode(params)
+  }
+
   rawRequest(params: LarkRawRequestParams): Promise<unknown> {
     return this.messages.rawRequest(params)
   }
 
   queryBitableRecords(params: LarkBitableQueryRecordsParams): Promise<LarkBitableQueryRecordsResult> {
     return this.bitable.queryRecords(params)
+  }
+
+  listBitableTables(params: LarkBitableListTablesParams): Promise<LarkBitableListTablesResult> {
+    return this.bitable.listTables(params)
+  }
+
+  createBitableRecord(params: LarkBitableCreateRecordParams): Promise<LarkBitableCreateRecordResult> {
+    return this.bitable.createRecord(params)
+  }
+
+  updateBitableRecord(params: LarkBitableUpdateRecordParams): Promise<LarkBitableUpdateRecordResult> {
+    return this.bitable.updateRecord(params)
+  }
+
+  listCalendarEvents(params: LarkCalendarListEventsParams): Promise<LarkCalendarListEventsResult> {
+    return this.calendar.listEvents(params)
+  }
+
+  createCalendarEvent(params: LarkCalendarCreateEventParams): Promise<LarkCalendarCreateEventResult> {
+    return this.calendar.createEvent(params)
+  }
+
+  updateCalendarEvent(params: LarkCalendarUpdateEventParams): Promise<LarkCalendarUpdateEventResult> {
+    return this.calendar.updateEvent(params)
+  }
+
+  createTask(params: LarkTaskCreateParams): Promise<LarkTaskCreateResult> {
+    return this.tasks.createTask(params)
+  }
+
+  listTasks(params: LarkTaskListParams): Promise<LarkTaskListResult> {
+    return this.tasks.listTasks(params)
+  }
+
+  updateTask(params: LarkTaskUpdateParams): Promise<LarkTaskUpdateResult> {
+    return this.tasks.updateTask(params)
+  }
+
+  listMessages(params: LarkListMessagesParams): Promise<LarkListMessagesResult> {
+    return this.messages.listMessages(params)
+  }
+
+  deleteMessageReaction(params: LarkDeleteMessageReactionParams): Promise<LarkDeleteMessageReactionResult> {
+    return this.messages.deleteMessageReaction(params)
+  }
+
+  getContactUser(params: LarkContactGetUserParams): Promise<LarkContactGetUserResult> {
+    return this.contact.getUser(params)
+  }
+
+  searchContactUser(params: LarkContactSearchUserParams): Promise<LarkContactSearchUserResult> {
+    return this.contact.searchUser(params)
+  }
+
+  createWikiNode(params: LarkCreateWikiNodeParams): Promise<LarkCreateWikiNodeResult> {
+    return this.wiki.createNode(params)
   }
 }

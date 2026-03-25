@@ -19,18 +19,38 @@ import { formatToolError } from '../../plugin/formatters.js'
 import {
   presentAddMessageReactionResult,
   presentAppendDocumentContentResult,
+  presentBitableCreateRecordResult,
+  presentBitableListTablesResult,
+  presentBitableQueryRecordsResult,
+  presentBitableUpdateRecordResult,
+  presentCalendarCreateEventResult,
+  presentCalendarListEventsResult,
+  presentCalendarUpdateEventResult,
   presentChatListResult,
+  presentContactGetUserResult,
+  presentContactSearchUserResult,
   presentCreateDocumentResult,
+  presentCreateWikiNodeResult,
+  presentDeleteDocumentBlocksResult,
+  presentDeleteMessageReactionResult,
+  presentDeleteMessageResult,
+  presentDeleteWikiNodeResult,
   presentDriveFileListResult,
   presentDriveRootFolderResult,
   presentKnowledgeLookupResult,
+  presentListMessagesResult,
+  presentReadDocumentBlocksResult,
   presentReadFileContentResult,
   presentReadMessageAttachmentResult,
   presentReadDocumentContentResult,
   presentReplyMessageResult,
   presentSearchDocsResult,
   presentSendMessageResult,
+  presentTaskCreateResult,
+  presentTaskListResult,
+  presentTaskUpdateResult,
   presentTransferDocumentOwnershipResult,
+  presentUpdateMessageResult,
   presentWikiNodeListResult,
   presentWikiNodeResult,
   presentWikiSpaceListResult,
@@ -161,7 +181,10 @@ function createChatLunaToolInstance(
               fileName: typeof input.fileName === 'string' ? input.fileName : undefined,
               mimeType: typeof input.mimeType === 'string' ? input.mimeType : undefined,
             })
-            return formatToolJson(presentReadFileContentResult(result), request.output.maxResponseLength)
+            const fileMaxLength = typeof config.chatlunaAttachmentMaxChars === 'number' && config.chatlunaAttachmentMaxChars > 0
+              ? config.chatlunaAttachmentMaxChars
+              : undefined
+            return formatToolJson(presentReadFileContentResult(result), fileMaxLength)
           }
           case 'lark_read_context_file': {
             const source = typeof input.source === 'string' && input.source.trim()
@@ -191,7 +214,10 @@ function createChatLunaToolInstance(
               result.messageId,
               result.fileKey,
             )
-            return formatToolJson(presentReadMessageAttachmentResult(result), request.output.maxResponseLength)
+            const attachmentMaxLength = typeof config.chatlunaAttachmentMaxChars === 'number' && config.chatlunaAttachmentMaxChars > 0
+              ? config.chatlunaAttachmentMaxChars
+              : undefined
+            return formatToolJson(presentReadMessageAttachmentResult(result), attachmentMaxLength)
           }
           case 'lark_query_docs_search': {
             const result = await center.searchDocs({
@@ -293,6 +319,186 @@ function createChatLunaToolInstance(
               },
               request.output.maxResponseLength,
             )
+          }
+          case 'lark_read_doc_blocks': {
+            const result = await center.readDocumentBlocks({
+              documentId: expectToolString(input.documentId, 'documentId'),
+              pageSize: typeof input.pageSize === 'number' ? input.pageSize : undefined,
+              pageToken: typeof input.pageToken === 'string' ? input.pageToken : undefined,
+            })
+            return formatToolJson(presentReadDocumentBlocksResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_message_update': {
+            const result = await center.updateMessage({
+              messageId: expectToolString(input.messageId, 'messageId'),
+              content: expectToolString(input.content, 'content'),
+              messageType: typeof input.messageType === 'string' ? input.messageType : undefined,
+              json: Boolean(input.json),
+            })
+            return formatToolJson(presentUpdateMessageResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_message_delete': {
+            const result = await center.deleteMessage({
+              messageId: expectToolString(input.messageId, 'messageId'),
+            })
+            return formatToolJson(presentDeleteMessageResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_write_doc_delete_blocks': {
+            const result = await center.deleteDocumentBlocks({
+              documentId: expectToolString(input.documentId, 'documentId'),
+              parentBlockId: expectToolString(input.parentBlockId, 'parentBlockId'),
+              startIndex: typeof input.startIndex === 'number' ? input.startIndex : Number(input.startIndex),
+              endIndex: typeof input.endIndex === 'number' ? input.endIndex : Number(input.endIndex),
+            })
+            return formatToolJson(presentDeleteDocumentBlocksResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_write_wiki_delete_node': {
+            const result = await center.deleteWikiNode({
+              spaceId: expectToolString(input.spaceId, 'spaceId'),
+              nodeToken: expectToolString(input.nodeToken, 'nodeToken'),
+            })
+            return formatToolJson(presentDeleteWikiNodeResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_bitable_list_tables': {
+            const result = await center.listBitableTables({
+              appToken: expectToolString(input.appToken, 'appToken'),
+              pageSize: typeof input.pageSize === 'number' ? input.pageSize : undefined,
+              pageToken: typeof input.pageToken === 'string' ? input.pageToken : undefined,
+            })
+            return formatToolJson(presentBitableListTablesResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_bitable_query_records': {
+            const result = await center.queryBitableRecords({
+              appToken: expectToolString(input.appToken, 'appToken'),
+              tableId: expectToolString(input.tableId, 'tableId'),
+              filter: typeof input.filter === 'string' ? input.filter : undefined,
+              pageSize: typeof input.pageSize === 'number' ? input.pageSize : undefined,
+              pageToken: typeof input.pageToken === 'string' ? input.pageToken : undefined,
+            })
+            return formatToolJson(presentBitableQueryRecordsResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_bitable_create_record': {
+            const result = await center.createBitableRecord({
+              appToken: expectToolString(input.appToken, 'appToken'),
+              tableId: expectToolString(input.tableId, 'tableId'),
+              fields: (input.fields ?? {}) as Record<string, unknown>,
+            })
+            return formatToolJson(presentBitableCreateRecordResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_bitable_update_record': {
+            const result = await center.updateBitableRecord({
+              appToken: expectToolString(input.appToken, 'appToken'),
+              tableId: expectToolString(input.tableId, 'tableId'),
+              recordId: expectToolString(input.recordId, 'recordId'),
+              fields: (input.fields ?? {}) as Record<string, unknown>,
+            })
+            return formatToolJson(presentBitableUpdateRecordResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_calendar_list_events': {
+            const result = await center.listCalendarEvents({
+              calendarId: typeof input.calendarId === 'string' ? input.calendarId : undefined,
+              startTime: typeof input.startTime === 'string' ? input.startTime : undefined,
+              endTime: typeof input.endTime === 'string' ? input.endTime : undefined,
+              pageSize: typeof input.pageSize === 'number' ? input.pageSize : undefined,
+              pageToken: typeof input.pageToken === 'string' ? input.pageToken : undefined,
+            })
+            return formatToolJson(presentCalendarListEventsResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_calendar_create_event': {
+            const result = await center.createCalendarEvent({
+              calendarId: typeof input.calendarId === 'string' ? input.calendarId : undefined,
+              summary: expectToolString(input.summary, 'summary'),
+              description: typeof input.description === 'string' ? input.description : undefined,
+              startTime: expectToolString(input.startTime, 'startTime'),
+              endTime: expectToolString(input.endTime, 'endTime'),
+              location: typeof input.location === 'string' ? input.location : undefined,
+              needNotification: typeof input.needNotification === 'boolean' ? input.needNotification : undefined,
+            })
+            return formatToolJson(presentCalendarCreateEventResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_calendar_update_event': {
+            const result = await center.updateCalendarEvent({
+              calendarId: typeof input.calendarId === 'string' ? input.calendarId : undefined,
+              eventId: expectToolString(input.eventId, 'eventId'),
+              summary: typeof input.summary === 'string' ? input.summary : undefined,
+              description: typeof input.description === 'string' ? input.description : undefined,
+              startTime: typeof input.startTime === 'string' ? input.startTime : undefined,
+              endTime: typeof input.endTime === 'string' ? input.endTime : undefined,
+            })
+            return formatToolJson(presentCalendarUpdateEventResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_task_create': {
+            const result = await center.createTask({
+              summary: expectToolString(input.summary, 'summary'),
+              description: typeof input.description === 'string' ? input.description : undefined,
+              dueTime: typeof input.dueTime === 'string' ? input.dueTime : undefined,
+              assigneeOpenIds: Array.isArray(input.assigneeOpenIds) ? input.assigneeOpenIds as string[] : undefined,
+            })
+            return formatToolJson(presentTaskCreateResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_task_list': {
+            const result = await center.listTasks({
+              pageSize: typeof input.pageSize === 'number' ? input.pageSize : undefined,
+              pageToken: typeof input.pageToken === 'string' ? input.pageToken : undefined,
+              completed: typeof input.completed === 'boolean' ? input.completed : undefined,
+            })
+            return formatToolJson(presentTaskListResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_task_update': {
+            const result = await center.updateTask({
+              taskGuid: expectToolString(input.taskGuid, 'taskGuid'),
+              summary: typeof input.summary === 'string' ? input.summary : undefined,
+              description: typeof input.description === 'string' ? input.description : undefined,
+              dueTime: typeof input.dueTime === 'string' ? input.dueTime : undefined,
+              completed: typeof input.completed === 'boolean' ? input.completed : undefined,
+            })
+            return formatToolJson(presentTaskUpdateResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_message_list': {
+            const result = await center.listMessages({
+              chatId: expectToolString(input.chatId, 'chatId'),
+              pageSize: typeof input.pageSize === 'number' ? input.pageSize : undefined,
+              pageToken: typeof input.pageToken === 'string' ? input.pageToken : undefined,
+              startTime: typeof input.startTime === 'string' ? input.startTime : undefined,
+              endTime: typeof input.endTime === 'string' ? input.endTime : undefined,
+            })
+            return formatToolJson(presentListMessagesResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_message_reaction_delete': {
+            const result = await center.deleteMessageReaction({
+              messageId: expectToolString(input.messageId, 'messageId'),
+              reactionId: expectToolString(input.reactionId, 'reactionId'),
+            })
+            return formatToolJson(presentDeleteMessageReactionResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_contact_get_user': {
+            const result = await center.getContactUser({
+              openId: expectToolString(input.openId, 'openId'),
+            })
+            return formatToolJson(presentContactGetUserResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_contact_search_user': {
+            const result = await center.searchContactUser({
+              query: expectToolString(input.query, 'query'),
+              pageSize: typeof input.pageSize === 'number' ? input.pageSize : undefined,
+              pageToken: typeof input.pageToken === 'string' ? input.pageToken : undefined,
+            })
+            return formatToolJson(presentContactSearchUserResult(result), request.output.maxResponseLength)
+          }
+          case 'lark_write_wiki_create_node': {
+            const validObjTypes = ['doc', 'docx', 'sheet', 'mindnote', 'bitable', 'file'] as const
+            type WikiObjType = typeof validObjTypes[number]
+            const rawObjType = typeof input.objType === 'string' ? input.objType : 'docx'
+            const objType = (validObjTypes as readonly string[]).includes(rawObjType)
+              ? rawObjType as WikiObjType
+              : 'docx' as WikiObjType
+            const result = await center.createWikiNode({
+              spaceId: expectToolString(input.spaceId, 'spaceId'),
+              objType,
+              title: expectToolString(input.title, 'title'),
+              parentNodeToken: typeof input.parentNodeToken === 'string' ? input.parentNodeToken : undefined,
+            })
+            return formatToolJson(presentCreateWikiNodeResult(result), request.output.maxResponseLength)
           }
           case 'lark_system_raw_api': {
             const result = await center.rawRequest({

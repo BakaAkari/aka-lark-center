@@ -18,6 +18,7 @@ export interface Config {
   chatlunaEnabled: boolean
   chatlunaContextInjectionEnabled: boolean
   chatlunaContextMaxChars: number
+  chatlunaAttachmentMaxChars: number
 }
 
 export type ReceiveIdType = 'chat_id' | 'open_id' | 'user_id' | 'union_id' | 'email'
@@ -425,6 +426,29 @@ export interface LarkBatchGetDriveMetasResult {
   raw: unknown
 }
 
+export interface LarkReadDocumentBlocksParams {
+  documentId: string
+  pageSize?: number
+  pageToken?: string
+}
+
+export interface LarkDocxBlockSummary {
+  blockId: string
+  parentId?: string
+  blockType: number
+  children?: string[]
+  text?: string
+  raw?: unknown
+}
+
+export interface LarkReadDocumentBlocksResult {
+  documentId: string
+  items: LarkDocxBlockSummary[]
+  hasMore: boolean
+  nextPageToken?: string
+  raw: unknown
+}
+
 export interface LarkAppendDocumentContentParams {
   documentId: string
   content: string
@@ -438,6 +462,32 @@ export interface LarkAppendDocumentContentResult {
   parentBlockId: string
   blockCount: number
   childBlockIds: string[]
+  raw: unknown
+}
+
+export interface LarkDeleteDocumentBlocksParams {
+  documentId: string
+  parentBlockId: string
+  startIndex: number
+  endIndex: number
+}
+
+export interface LarkDeleteDocumentBlocksResult {
+  documentId: string
+  parentBlockId: string
+  startIndex: number
+  endIndex: number
+  raw: unknown
+}
+
+export interface LarkDeleteWikiNodeParams {
+  spaceId: string
+  nodeToken: string
+}
+
+export interface LarkDeleteWikiNodeResult {
+  spaceId: string
+  nodeToken: string
   raw: unknown
 }
 
@@ -483,6 +533,27 @@ export interface LarkReplyMessageResult {
   rootId?: string
   parentId?: string
   threadId?: string
+  raw: unknown
+}
+
+export interface LarkUpdateMessageParams {
+  messageId: string
+  content: string
+  messageType?: string
+  json?: boolean
+}
+
+export interface LarkUpdateMessageResult {
+  messageId: string
+  raw: unknown
+}
+
+export interface LarkDeleteMessageParams {
+  messageId: string
+}
+
+export interface LarkDeleteMessageResult {
+  messageId: string
   raw: unknown
 }
 
@@ -574,6 +645,256 @@ export interface LarkDownloadFileResult {
   fileToken: string
   data: ArrayBuffer
   sizeBytes: number
+  raw?: unknown
+}
+
+// ── Bitable ──────────────────────────────────────────────────────────────────
+
+export interface LarkBitableTableSummary {
+  tableId: string
+  name?: string
+  revision?: number
+}
+
+export interface LarkBitableListTablesParams {
+  appToken: string
+  pageSize?: number
+  pageToken?: string
+}
+
+export interface LarkBitableListTablesResult {
+  items: LarkBitableTableSummary[]
+  hasMore: boolean
+  nextPageToken?: string
+  raw?: unknown
+}
+
+export interface LarkBitableCreateRecordParams {
+  appToken: string
+  tableId: string
+  fields: Record<string, unknown>
+}
+
+export interface LarkBitableCreateRecordResult {
+  recordId: string
+  fields: Record<string, unknown>
+  raw?: unknown
+}
+
+export interface LarkBitableUpdateRecordParams {
+  appToken: string
+  tableId: string
+  recordId: string
+  fields: Record<string, unknown>
+}
+
+export interface LarkBitableUpdateRecordResult {
+  recordId: string
+  fields: Record<string, unknown>
+  raw?: unknown
+}
+
+// ── Calendar ─────────────────────────────────────────────────────────────────
+
+export interface LarkCalendarEventSummary {
+  eventId: string
+  summary?: string
+  description?: string
+  startTime?: string
+  endTime?: string
+  status?: string
+  location?: string
+}
+
+export interface LarkCalendarListEventsParams {
+  calendarId?: string
+  startTime?: string
+  endTime?: string
+  pageSize?: number
+  pageToken?: string
+}
+
+export interface LarkCalendarListEventsResult {
+  items: LarkCalendarEventSummary[]
+  hasMore: boolean
+  nextPageToken?: string
+  raw?: unknown
+}
+
+export interface LarkCalendarCreateEventParams {
+  calendarId?: string
+  summary: string
+  description?: string
+  startTime: string
+  endTime: string
+  location?: string
+  needNotification?: boolean
+}
+
+export interface LarkCalendarCreateEventResult {
+  eventId: string
+  summary?: string
+  startTime?: string
+  endTime?: string
+  raw?: unknown
+}
+
+export interface LarkCalendarUpdateEventParams {
+  calendarId?: string
+  eventId: string
+  summary?: string
+  description?: string
+  startTime?: string
+  endTime?: string
+  location?: string
+  needNotification?: boolean
+}
+
+export interface LarkCalendarUpdateEventResult {
+  eventId: string
+  summary?: string
+  startTime?: string
+  endTime?: string
+  raw?: unknown
+}
+
+// ── Task ─────────────────────────────────────────────────────────────────────
+
+export interface LarkTaskSummary {
+  taskGuid: string
+  summary: string
+  description?: string
+  dueTime?: string
+  completedAt?: string
+  status?: string
+}
+
+export interface LarkTaskCreateParams {
+  summary: string
+  description?: string
+  dueTime?: string
+  assigneeOpenIds?: string[]
+}
+
+export interface LarkTaskCreateResult {
+  taskGuid: string
+  summary: string
+  raw?: unknown
+}
+
+export interface LarkTaskListParams {
+  pageSize?: number
+  pageToken?: string
+  completed?: boolean
+}
+
+export interface LarkTaskListResult {
+  items: LarkTaskSummary[]
+  hasMore: boolean
+  nextPageToken?: string
+  raw?: unknown
+}
+
+export interface LarkTaskUpdateParams {
+  taskGuid: string
+  summary?: string
+  description?: string
+  dueTime?: string
+  completed?: boolean
+}
+
+export interface LarkTaskUpdateResult {
+  taskGuid: string
+  summary?: string
+  raw?: unknown
+}
+
+// ── IM additions ─────────────────────────────────────────────────────────────
+
+export interface LarkMessageSummary {
+  messageId: string
+  msgType?: string
+  content?: string
+  createTime?: string
+  senderId?: string
+}
+
+export interface LarkListMessagesParams {
+  chatId: string
+  startTime?: string
+  endTime?: string
+  sortType?: 'ByCreateTimeAsc' | 'ByCreateTimeDesc'
+  pageSize?: number
+  pageToken?: string
+}
+
+export interface LarkListMessagesResult {
+  items: LarkMessageSummary[]
+  hasMore: boolean
+  nextPageToken?: string
+  raw?: unknown
+}
+
+export interface LarkDeleteMessageReactionParams {
+  messageId: string
+  reactionId: string
+}
+
+export interface LarkDeleteMessageReactionResult {
+  reactionId?: string
+  raw?: unknown
+}
+
+// ── Contact ──────────────────────────────────────────────────────────────────
+
+export interface LarkUserProfile {
+  openId?: string
+  userId?: string
+  name?: string
+  enName?: string
+  email?: string
+  mobile?: string
+  department?: string
+  jobTitle?: string
+  avatar?: string
+}
+
+export interface LarkContactGetUserParams {
+  openId: string
+}
+
+export interface LarkContactGetUserResult {
+  user: LarkUserProfile
+  raw?: unknown
+}
+
+export interface LarkContactSearchUserParams {
+  query: string
+  pageSize?: number
+  pageToken?: string
+}
+
+export interface LarkContactSearchUserResult {
+  items: LarkUserProfile[]
+  hasMore: boolean
+  nextPageToken?: string
+  raw?: unknown
+}
+
+// ── Wiki additions ────────────────────────────────────────────────────────────
+
+export interface LarkCreateWikiNodeParams {
+  spaceId: string
+  parentNodeToken?: string
+  title: string
+  objType?: 'doc' | 'docx' | 'sheet' | 'mindnote' | 'bitable' | 'file'
+}
+
+export interface LarkCreateWikiNodeResult {
+  nodeToken: string
+  objToken?: string
+  objType?: string
+  title?: string
   raw?: unknown
 }
 

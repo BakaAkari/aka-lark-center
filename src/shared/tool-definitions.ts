@@ -478,4 +478,560 @@ export const LARK_TOOL_DEFINITIONS: LarkToolDefinition[] = [
       required: ['method', 'path'],
     },
   },
+  {
+    name: 'lark_read_doc_blocks',
+    description: 'List the block structure of a Lark docx document, including block IDs, types, parent relationships, and extracted text.',
+    usage: 'Use this before editing or deleting specific paragraphs in a document. The result provides blockId and the index position of each block within its parent, which are required by lark_write_doc_delete_blocks and lark_write_doc_append. Paginate with pageToken when hasMore is true.',
+    riskLevel: 'low',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        documentId: {
+          type: 'string',
+          description: 'Target document_id.',
+        },
+        pageSize: {
+          type: 'number',
+          description: 'Optional page size from 1 to 200. Defaults to 50.',
+        },
+        pageToken: {
+          type: 'string',
+          description: 'Optional pagination token returned by a previous call.',
+        },
+      },
+      required: ['documentId'],
+    },
+  },
+  {
+    name: 'lark_message_update',
+    description: 'Edit the content of an existing Lark message. Only text and post message types are supported by the Feishu API.',
+    usage: 'Use this when the user wants to correct or update a previously sent message. The message must have been sent by the current bot. Only text and post types can be edited; interactive card messages must use lark_system_raw_api with the patch endpoint instead.',
+    riskLevel: 'medium',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        messageId: {
+          type: 'string',
+          description: 'Target open_message_id to edit.',
+        },
+        content: {
+          type: 'string',
+          description: 'New message content. Plain text for text messages, or Lark content JSON when json=true.',
+        },
+        messageType: {
+          type: 'string',
+          description: 'Lark msg_type. Defaults to text. Only text and post are supported.',
+        },
+        json: {
+          type: 'boolean',
+          description: 'Whether content should be treated as Lark content JSON.',
+        },
+      },
+      required: ['messageId', 'content'],
+    },
+  },
+  {
+    name: 'lark_message_delete',
+    description: 'Recall (delete) a Lark message sent by the current bot.',
+    usage: 'Use this when the user wants to withdraw or delete a previously sent message. Only messages sent by the current bot can be recalled.',
+    riskLevel: 'high',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        messageId: {
+          type: 'string',
+          description: 'Target open_message_id to recall.',
+        },
+      },
+      required: ['messageId'],
+    },
+  },
+  {
+    name: 'lark_write_doc_delete_blocks',
+    description: 'Delete a range of child blocks from a parent block in a Lark docx document.',
+    usage: 'Use this to remove content blocks from a document. startIndex and endIndex are zero-based positions within the parent block children array. The range is [startIndex, endIndex), i.e. endIndex is exclusive. Use lark_write_doc_append result childBlockIds or lark_read_doc to identify the target parentBlockId first.',
+    riskLevel: 'high',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        documentId: {
+          type: 'string',
+          description: 'Target document_id.',
+        },
+        parentBlockId: {
+          type: 'string',
+          description: 'The parent block whose children will be deleted.',
+        },
+        startIndex: {
+          type: 'number',
+          description: 'Zero-based start index of the child range to delete (inclusive).',
+        },
+        endIndex: {
+          type: 'number',
+          description: 'Zero-based end index of the child range to delete (exclusive).',
+        },
+      },
+      required: ['documentId', 'parentBlockId', 'startIndex', 'endIndex'],
+    },
+  },
+  {
+    name: 'lark_write_wiki_delete_node',
+    description: 'Delete a wiki node (page) from a Feishu knowledge space.',
+    usage: 'Use this when the user explicitly wants to remove a wiki page. Both spaceId and nodeToken are required. Use lark_query_wiki_spaces and lark_query_wiki_children to discover them first.',
+    riskLevel: 'high',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        spaceId: {
+          type: 'string',
+          description: 'Target wiki space ID.',
+        },
+        nodeToken: {
+          type: 'string',
+          description: 'Target wiki node token to delete.',
+        },
+      },
+      required: ['spaceId', 'nodeToken'],
+    },
+  },
+  // ── Bitable ────────────────────────────────────────────────────────────────
+  {
+    name: 'lark_bitable_list_tables',
+    description: 'List all data tables in a Feishu Bitable (multi-dimensional spreadsheet) app.',
+    usage: 'Use this to discover available tables in a Bitable app before querying or writing records. appToken is the Bitable app token from the URL.',
+    riskLevel: 'low',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        appToken: {
+          type: 'string',
+          description: 'Bitable app token.',
+        },
+        pageSize: {
+          type: 'number',
+          description: 'Number of tables per page (max 100).',
+        },
+        pageToken: {
+          type: 'string',
+          description: 'Pagination token from a previous response.',
+        },
+      },
+      required: ['appToken'],
+    },
+  },
+  {
+    name: 'lark_bitable_query_records',
+    description: 'Query records from a Feishu Bitable table with optional filter.',
+    usage: 'Use this to read data from a Bitable table. Use lark_bitable_list_tables first to get the tableId. The filter parameter uses Bitable filter syntax.',
+    riskLevel: 'low',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        appToken: {
+          type: 'string',
+          description: 'Bitable app token.',
+        },
+        tableId: {
+          type: 'string',
+          description: 'Target table ID.',
+        },
+        pageSize: {
+          type: 'number',
+          description: 'Number of records per page (max 500).',
+        },
+        pageToken: {
+          type: 'string',
+          description: 'Pagination token from a previous response.',
+        },
+        filter: {
+          type: 'string',
+          description: 'Optional filter expression in Bitable filter syntax.',
+        },
+      },
+      required: ['appToken', 'tableId'],
+    },
+  },
+  {
+    name: 'lark_bitable_create_record',
+    description: 'Create a new record in a Feishu Bitable table.',
+    usage: 'Use this to insert a new row into a Bitable table. fields is a JSON object mapping field names to values.',
+    riskLevel: 'medium',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        appToken: {
+          type: 'string',
+          description: 'Bitable app token.',
+        },
+        tableId: {
+          type: 'string',
+          description: 'Target table ID.',
+        },
+        fields: {
+          type: 'object',
+          description: 'Field values as a JSON object mapping field names to values.',
+        },
+      },
+      required: ['appToken', 'tableId', 'fields'],
+    },
+  },
+  {
+    name: 'lark_bitable_update_record',
+    description: 'Update an existing record in a Feishu Bitable table.',
+    usage: 'Use this to modify an existing row in a Bitable table. recordId identifies the row to update. fields contains only the fields to change.',
+    riskLevel: 'medium',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        appToken: {
+          type: 'string',
+          description: 'Bitable app token.',
+        },
+        tableId: {
+          type: 'string',
+          description: 'Target table ID.',
+        },
+        recordId: {
+          type: 'string',
+          description: 'Record ID to update.',
+        },
+        fields: {
+          type: 'object',
+          description: 'Field values to update as a JSON object.',
+        },
+      },
+      required: ['appToken', 'tableId', 'recordId', 'fields'],
+    },
+  },
+  // ── Calendar ───────────────────────────────────────────────────────────────
+  {
+    name: 'lark_calendar_list_events',
+    description: 'List calendar events from a Feishu calendar.',
+    usage: 'Use this to read upcoming or past events. calendarId defaults to the primary calendar. startTime and endTime are Unix timestamps (seconds) as strings.',
+    riskLevel: 'low',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        calendarId: {
+          type: 'string',
+          description: 'Calendar ID. Defaults to the primary calendar if omitted.',
+        },
+        startTime: {
+          type: 'string',
+          description: 'Start of time range as Unix timestamp string (seconds).',
+        },
+        endTime: {
+          type: 'string',
+          description: 'End of time range as Unix timestamp string (seconds).',
+        },
+        pageSize: {
+          type: 'number',
+          description: 'Number of events per page.',
+        },
+        pageToken: {
+          type: 'string',
+          description: 'Pagination token from a previous response.',
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'lark_calendar_create_event',
+    description: 'Create a new event in a Feishu calendar.',
+    usage: 'Use this to schedule a meeting or event. startTime and endTime are Unix timestamps (seconds) as strings. calendarId defaults to the primary calendar.',
+    riskLevel: 'medium',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        calendarId: {
+          type: 'string',
+          description: 'Calendar ID. Defaults to the primary calendar if omitted.',
+        },
+        summary: {
+          type: 'string',
+          description: 'Event title.',
+        },
+        description: {
+          type: 'string',
+          description: 'Event description.',
+        },
+        startTime: {
+          type: 'string',
+          description: 'Event start time as Unix timestamp string (seconds).',
+        },
+        endTime: {
+          type: 'string',
+          description: 'Event end time as Unix timestamp string (seconds).',
+        },
+        location: {
+          type: 'string',
+          description: 'Event location name.',
+        },
+        needNotification: {
+          type: 'boolean',
+          description: 'Whether to send notification to attendees.',
+        },
+      },
+      required: ['summary', 'startTime', 'endTime'],
+    },
+  },
+  {
+    name: 'lark_calendar_update_event',
+    description: 'Update an existing event in a Feishu calendar.',
+    usage: 'Use this to modify an existing calendar event. eventId is required. Only provide the fields you want to change.',
+    riskLevel: 'medium',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        calendarId: {
+          type: 'string',
+          description: 'Calendar ID. Defaults to the primary calendar if omitted.',
+        },
+        eventId: {
+          type: 'string',
+          description: 'Event ID to update.',
+        },
+        summary: {
+          type: 'string',
+          description: 'New event title.',
+        },
+        description: {
+          type: 'string',
+          description: 'New event description.',
+        },
+        startTime: {
+          type: 'string',
+          description: 'New start time as Unix timestamp string (seconds).',
+        },
+        endTime: {
+          type: 'string',
+          description: 'New end time as Unix timestamp string (seconds).',
+        },
+        location: {
+          type: 'string',
+          description: 'New event location name.',
+        },
+        needNotification: {
+          type: 'boolean',
+          description: 'Whether to send notification to attendees.',
+        },
+      },
+      required: ['eventId'],
+    },
+  },
+  // ── Task ───────────────────────────────────────────────────────────────────
+  {
+    name: 'lark_task_create',
+    description: 'Create a new task in Feishu Tasks.',
+    usage: 'Use this to create a to-do or task item. dueTime is a Unix timestamp in milliseconds as a string. assigneeOpenIds is a list of open_ids of assignees.',
+    riskLevel: 'medium',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        summary: {
+          type: 'string',
+          description: 'Task title.',
+        },
+        description: {
+          type: 'string',
+          description: 'Task description.',
+        },
+        dueTime: {
+          type: 'string',
+          description: 'Due time as Unix timestamp string (milliseconds).',
+        },
+        assigneeOpenIds: {
+          type: 'string',
+          description: 'Comma-separated list of assignee open_ids.',
+        },
+      },
+      required: ['summary'],
+    },
+  },
+  {
+    name: 'lark_task_list',
+    description: 'List tasks from Feishu Tasks.',
+    usage: 'Use this to retrieve the current user\'s task list. Set completed=true to list completed tasks.',
+    riskLevel: 'low',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pageSize: {
+          type: 'number',
+          description: 'Number of tasks per page (max 100).',
+        },
+        pageToken: {
+          type: 'string',
+          description: 'Pagination token from a previous response.',
+        },
+        completed: {
+          type: 'boolean',
+          description: 'If true, list completed tasks. If false or omitted, list incomplete tasks.',
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'lark_task_update',
+    description: 'Update an existing task in Feishu Tasks.',
+    usage: 'Use this to modify a task. taskGuid is required. Set completed=true to mark the task as done.',
+    riskLevel: 'medium',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        taskGuid: {
+          type: 'string',
+          description: 'Task GUID to update.',
+        },
+        summary: {
+          type: 'string',
+          description: 'New task title.',
+        },
+        description: {
+          type: 'string',
+          description: 'New task description.',
+        },
+        dueTime: {
+          type: 'string',
+          description: 'New due time as Unix timestamp string (milliseconds).',
+        },
+        completed: {
+          type: 'boolean',
+          description: 'Set to true to mark the task as completed.',
+        },
+      },
+      required: ['taskGuid'],
+    },
+  },
+  // ── IM additions ──────────────────────────────────────────────────────────
+  {
+    name: 'lark_message_list',
+    description: 'List messages in a Feishu chat.',
+    usage: 'Use this to read message history from a chat. chatId is the group or P2P chat ID. startTime and endTime are Unix timestamps (seconds) as strings.',
+    riskLevel: 'low',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        chatId: {
+          type: 'string',
+          description: 'Chat ID (group or P2P).',
+        },
+        startTime: {
+          type: 'string',
+          description: 'Start of time range as Unix timestamp string (seconds).',
+        },
+        endTime: {
+          type: 'string',
+          description: 'End of time range as Unix timestamp string (seconds).',
+        },
+        sortType: {
+          type: 'string',
+          description: 'Sort order: ByCreateTimeAsc or ByCreateTimeDesc.',
+          enum: ['ByCreateTimeAsc', 'ByCreateTimeDesc'],
+        },
+        pageSize: {
+          type: 'number',
+          description: 'Number of messages per page (max 50).',
+        },
+        pageToken: {
+          type: 'string',
+          description: 'Pagination token from a previous response.',
+        },
+      },
+      required: ['chatId'],
+    },
+  },
+  {
+    name: 'lark_message_reaction_delete',
+    description: 'Delete a reaction (emoji) from a Feishu message.',
+    usage: 'Use this to remove a specific emoji reaction from a message. Both messageId and reactionId are required. Use lark_message_reaction_add response to get the reactionId.',
+    riskLevel: 'medium',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        messageId: {
+          type: 'string',
+          description: 'Target message ID.',
+        },
+        reactionId: {
+          type: 'string',
+          description: 'Reaction ID to delete.',
+        },
+      },
+      required: ['messageId', 'reactionId'],
+    },
+  },
+  // ── Contact ────────────────────────────────────────────────────────────────
+  {
+    name: 'lark_contact_get_user',
+    description: 'Get detailed profile information for a Feishu user by open_id.',
+    usage: 'Use this to look up a specific user\'s name, email, department, and other profile fields. openId is the user\'s open_id.',
+    riskLevel: 'low',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        openId: {
+          type: 'string',
+          description: 'User open_id.',
+        },
+      },
+      required: ['openId'],
+    },
+  },
+  {
+    name: 'lark_contact_search_user',
+    description: 'Search for Feishu users by keyword.',
+    usage: 'Use this to find users by name or other attributes. Returns a paginated list of matching user profiles.',
+    riskLevel: 'low',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Search keyword (name, email, etc.).',
+        },
+        pageSize: {
+          type: 'number',
+          description: 'Number of results per page (max 200).',
+        },
+        pageToken: {
+          type: 'string',
+          description: 'Pagination token from a previous response.',
+        },
+      },
+      required: ['query'],
+    },
+  },
+  // ── Wiki additions ─────────────────────────────────────────────────────────
+  {
+    name: 'lark_write_wiki_create_node',
+    description: 'Create a new wiki node (page) in a Feishu knowledge space.',
+    usage: 'Use this to add a new page to a wiki space. spaceId and title are required. parentNodeToken places the page under a specific parent; omit to create at the root. objType defaults to docx.',
+    riskLevel: 'medium',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        spaceId: {
+          type: 'string',
+          description: 'Target wiki space ID.',
+        },
+        parentNodeToken: {
+          type: 'string',
+          description: 'Parent node token. Omit to create at the space root.',
+        },
+        title: {
+          type: 'string',
+          description: 'Page title.',
+        },
+        objType: {
+          type: 'string',
+          description: 'Document type for the new node.',
+          enum: ['doc', 'docx', 'sheet', 'mindnote', 'bitable', 'file'],
+        },
+      },
+      required: ['spaceId', 'title'],
+    },
+  },
 ]

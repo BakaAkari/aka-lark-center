@@ -1,18 +1,38 @@
 import type {
   LarkAddMessageReactionResult,
   LarkAppendDocumentContentResult,
+  LarkBitableCreateRecordResult,
+  LarkBitableListTablesResult,
+  LarkBitableQueryRecordsResult,
+  LarkBitableTableSummary,
+  LarkBitableUpdateRecordResult,
+  LarkCalendarCreateEventResult,
+  LarkCalendarEventSummary,
+  LarkCalendarListEventsResult,
+  LarkCalendarUpdateEventResult,
   LarkChatSummary,
+  LarkContactGetUserResult,
+  LarkContactSearchUserResult,
   LarkCreateDocumentResult,
+  LarkCreateWikiNodeResult,
+  LarkDeleteDocumentBlocksResult,
+  LarkDeleteMessageReactionResult,
+  LarkDeleteMessageResult,
+  LarkDeleteWikiNodeResult,
+  LarkDocxBlockSummary,
   LarkDriveFileSummary,
   LarkDriveRootFolderResult,
   LarkDocumentSummary,
   LarkGetWikiNodeResult,
   LarkListChatsResult,
   LarkListDriveFilesResult,
+  LarkListMessagesResult,
   LarkListWikiNodesResult,
   LarkListWikiSpacesResult,
   LarkKnowledgeLookupResult,
   LarkKnowledgeContextItem,
+  LarkMessageSummary,
+  LarkReadDocumentBlocksResult,
   LarkSearchDocsResult,
   LarkSearchDocumentSummary,
   LarkPingResult,
@@ -21,7 +41,13 @@ import type {
   LarkReadMessageAttachmentResult,
   LarkReplyMessageResult,
   LarkSendMessageResult,
+  LarkTaskCreateResult,
+  LarkTaskListResult,
+  LarkTaskSummary,
+  LarkTaskUpdateResult,
   LarkTransferDocumentOwnershipResult,
+  LarkUpdateMessageResult,
+  LarkUserProfile,
   LarkWikiNodeSummary,
   LarkWikiSpaceSummary,
 } from '../shared/types.js'
@@ -179,6 +205,38 @@ export interface AddMessageReactionPresentation {
   messageId: string
   emojiType: string
   reactionId?: string
+}
+
+export interface UpdateMessagePresentation {
+  ok: true
+  messageId: string
+}
+
+export interface DeleteMessagePresentation {
+  ok: true
+  messageId: string
+}
+
+export interface DeleteDocumentBlocksPresentation {
+  ok: true
+  documentId: string
+  parentBlockId: string
+  startIndex: number
+  endIndex: number
+}
+
+export interface DeleteWikiNodePresentation {
+  ok: true
+  spaceId: string
+  nodeToken: string
+}
+
+export interface ReadDocumentBlocksPresentation {
+  ok: true
+  documentId: string
+  items: LarkDocxBlockSummary[]
+  hasMore: boolean
+  nextPageToken?: string
 }
 
 export function presentPingResult(result: LarkPingResult, baseUrl: string, tokenPreview: string): PingPresentation {
@@ -384,5 +442,293 @@ export function presentAddMessageReactionResult(
     messageId,
     emojiType: result.emojiType,
     reactionId: result.reactionId,
+  }
+}
+
+export function presentUpdateMessageResult(result: LarkUpdateMessageResult): UpdateMessagePresentation {
+  return {
+    ok: true,
+    messageId: result.messageId,
+  }
+}
+
+export function presentDeleteMessageResult(result: LarkDeleteMessageResult): DeleteMessagePresentation {
+  return {
+    ok: true,
+    messageId: result.messageId,
+  }
+}
+
+export function presentDeleteDocumentBlocksResult(
+  result: LarkDeleteDocumentBlocksResult,
+): DeleteDocumentBlocksPresentation {
+  return {
+    ok: true,
+    documentId: result.documentId,
+    parentBlockId: result.parentBlockId,
+    startIndex: result.startIndex,
+    endIndex: result.endIndex,
+  }
+}
+
+export function presentDeleteWikiNodeResult(result: LarkDeleteWikiNodeResult): DeleteWikiNodePresentation {
+  return {
+    ok: true,
+    spaceId: result.spaceId,
+    nodeToken: result.nodeToken,
+  }
+}
+
+export function presentReadDocumentBlocksResult(
+  result: LarkReadDocumentBlocksResult,
+): ReadDocumentBlocksPresentation {
+  return {
+    ok: true,
+    documentId: result.documentId,
+    items: result.items,
+    hasMore: result.hasMore,
+    nextPageToken: result.nextPageToken,
+  }
+}
+
+// ── Bitable ───────────────────────────────────────────────────────────────────
+
+export interface BitableListTablesPresentation {
+  ok: boolean
+  items: LarkBitableTableSummary[]
+  hasMore: boolean
+  nextPageToken?: string
+}
+
+export interface BitableQueryRecordsPresentation {
+  ok: boolean
+  items: unknown[]
+  hasMore: boolean
+  nextPageToken?: string
+}
+
+export interface BitableCreateRecordPresentation {
+  ok: boolean
+  recordId: string
+  fields: Record<string, unknown>
+}
+
+export interface BitableUpdateRecordPresentation {
+  ok: boolean
+  recordId: string
+  fields: Record<string, unknown>
+}
+
+export function presentBitableListTablesResult(result: LarkBitableListTablesResult): BitableListTablesPresentation {
+  return {
+    ok: true,
+    items: result.items,
+    hasMore: result.hasMore,
+    nextPageToken: result.nextPageToken,
+  }
+}
+
+export function presentBitableQueryRecordsResult(result: LarkBitableQueryRecordsResult): BitableQueryRecordsPresentation {
+  return {
+    ok: true,
+    items: result.items,
+    hasMore: result.hasMore,
+    nextPageToken: result.nextPageToken,
+  }
+}
+
+export function presentBitableCreateRecordResult(result: LarkBitableCreateRecordResult): BitableCreateRecordPresentation {
+  return {
+    ok: true,
+    recordId: result.recordId,
+    fields: result.fields,
+  }
+}
+
+export function presentBitableUpdateRecordResult(result: LarkBitableUpdateRecordResult): BitableUpdateRecordPresentation {
+  return {
+    ok: true,
+    recordId: result.recordId,
+    fields: result.fields,
+  }
+}
+
+// ── Calendar ──────────────────────────────────────────────────────────────────
+
+export interface CalendarListEventsPresentation {
+  ok: boolean
+  items: LarkCalendarEventSummary[]
+  hasMore: boolean
+  nextPageToken?: string
+}
+
+export interface CalendarCreateEventPresentation {
+  ok: boolean
+  eventId: string
+  summary?: string
+  startTime?: string
+  endTime?: string
+}
+
+export interface CalendarUpdateEventPresentation {
+  ok: boolean
+  eventId: string
+  summary?: string
+  startTime?: string
+  endTime?: string
+}
+
+export function presentCalendarListEventsResult(result: LarkCalendarListEventsResult): CalendarListEventsPresentation {
+  return {
+    ok: true,
+    items: result.items,
+    hasMore: result.hasMore,
+    nextPageToken: result.nextPageToken,
+  }
+}
+
+export function presentCalendarCreateEventResult(result: LarkCalendarCreateEventResult): CalendarCreateEventPresentation {
+  return {
+    ok: true,
+    eventId: result.eventId,
+    summary: result.summary,
+    startTime: result.startTime,
+    endTime: result.endTime,
+  }
+}
+
+export function presentCalendarUpdateEventResult(result: LarkCalendarUpdateEventResult): CalendarUpdateEventPresentation {
+  return {
+    ok: true,
+    eventId: result.eventId,
+    summary: result.summary,
+    startTime: result.startTime,
+    endTime: result.endTime,
+  }
+}
+
+// ── Task ──────────────────────────────────────────────────────────────────────
+
+export interface TaskCreatePresentation {
+  ok: boolean
+  taskGuid: string
+  summary: string
+}
+
+export interface TaskListPresentation {
+  ok: boolean
+  items: LarkTaskSummary[]
+  hasMore: boolean
+  nextPageToken?: string
+}
+
+export interface TaskUpdatePresentation {
+  ok: boolean
+  taskGuid: string
+  summary?: string
+}
+
+export function presentTaskCreateResult(result: LarkTaskCreateResult): TaskCreatePresentation {
+  return {
+    ok: true,
+    taskGuid: result.taskGuid,
+    summary: result.summary,
+  }
+}
+
+export function presentTaskListResult(result: LarkTaskListResult): TaskListPresentation {
+  return {
+    ok: true,
+    items: result.items,
+    hasMore: result.hasMore,
+    nextPageToken: result.nextPageToken,
+  }
+}
+
+export function presentTaskUpdateResult(result: LarkTaskUpdateResult): TaskUpdatePresentation {
+  return {
+    ok: true,
+    taskGuid: result.taskGuid,
+    summary: result.summary,
+  }
+}
+
+// ── IM additions ──────────────────────────────────────────────────────────────
+
+export interface ListMessagesPresentation {
+  ok: boolean
+  items: LarkMessageSummary[]
+  hasMore: boolean
+  nextPageToken?: string
+}
+
+export interface DeleteMessageReactionPresentation {
+  ok: boolean
+  reactionId?: string
+}
+
+export function presentListMessagesResult(result: LarkListMessagesResult): ListMessagesPresentation {
+  return {
+    ok: true,
+    items: result.items,
+    hasMore: result.hasMore,
+    nextPageToken: result.nextPageToken,
+  }
+}
+
+export function presentDeleteMessageReactionResult(result: LarkDeleteMessageReactionResult): DeleteMessageReactionPresentation {
+  return {
+    ok: true,
+    reactionId: result.reactionId,
+  }
+}
+
+// ── Contact ───────────────────────────────────────────────────────────────────
+
+export interface ContactGetUserPresentation {
+  ok: boolean
+  user: LarkUserProfile
+}
+
+export interface ContactSearchUserPresentation {
+  ok: boolean
+  items: LarkUserProfile[]
+  hasMore: boolean
+  nextPageToken?: string
+}
+
+export function presentContactGetUserResult(result: LarkContactGetUserResult): ContactGetUserPresentation {
+  return {
+    ok: true,
+    user: result.user,
+  }
+}
+
+export function presentContactSearchUserResult(result: LarkContactSearchUserResult): ContactSearchUserPresentation {
+  return {
+    ok: true,
+    items: result.items,
+    hasMore: result.hasMore,
+    nextPageToken: result.nextPageToken,
+  }
+}
+
+// ── Wiki additions ────────────────────────────────────────────────────────────
+
+export interface CreateWikiNodePresentation {
+  ok: boolean
+  nodeToken: string
+  objToken?: string
+  objType?: string
+  title?: string
+}
+
+export function presentCreateWikiNodeResult(result: LarkCreateWikiNodeResult): CreateWikiNodePresentation {
+  return {
+    ok: true,
+    nodeToken: result.nodeToken,
+    objToken: result.objToken,
+    objType: result.objType,
+    title: result.title,
   }
 }

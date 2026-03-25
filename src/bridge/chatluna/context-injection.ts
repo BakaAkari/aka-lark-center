@@ -329,7 +329,10 @@ async function tryInjectAttachmentContext(
       fileName: plan.fileName,
       mimeType: plan.mimeType,
     })
-    const resourceContext = toAttachmentResourceContext(result, config.chatlunaContextMaxChars)
+    const attachmentMaxChars = typeof config.chatlunaAttachmentMaxChars === 'number' && config.chatlunaAttachmentMaxChars > 0
+      ? config.chatlunaAttachmentMaxChars
+      : undefined
+    const resourceContext = toAttachmentResourceContext(result, attachmentMaxChars)
     const contextBlock = formatLarkResourceContextBlock(resourceContext)
     injectContext(message, session, promptVariables, contextBlock, resourceContext, plan.userQuestion)
     logger.debug(
@@ -608,7 +611,7 @@ function toAttachmentResourceContext(
     fileName?: string
     text: string
   },
-  maxLength: number,
+  maxLength: number | undefined,
 ): LarkResourceContext {
   const truncated = truncateResourceContent(result.text, maxLength)
   return {

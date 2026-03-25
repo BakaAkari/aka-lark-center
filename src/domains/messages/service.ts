@@ -6,14 +6,23 @@ import type {
   LarkAddMessageReactionParams,
   LarkAddMessageReactionResult,
   LarkChatListData,
+  LarkDeleteMessageParams,
+  LarkDeleteMessageResult,
+  LarkDeleteMessageReactionParams,
+  LarkDeleteMessageReactionResult,
   LarkListChatsParams,
   LarkListChatsResult,
+  LarkListMessagesParams,
+  LarkListMessagesResult,
   LarkMessageSendData,
+  LarkMessageSummary,
   LarkRawRequestParams,
   LarkReplyMessageParams,
   LarkReplyMessageResult,
   LarkSendMessageParams,
   LarkSendMessageResult,
+  LarkUpdateMessageParams,
+  LarkUpdateMessageResult,
 } from '../../shared/types.js'
 
 export class LarkMessagesService {
@@ -113,6 +122,52 @@ export class LarkMessagesService {
     }
   }
 
+  async updateMessage(params: LarkUpdateMessageParams): Promise<LarkUpdateMessageResult> {
+    const messageId = ensureNonEmptyString(params.messageId, 'messageId')
+    const content = ensureNonEmptyString(params.content, '消息内容')
+
+    const messageType = typeof params.messageType === 'string' && params.messageType.trim()
+      ? params.messageType.trim()
+      : 'text'
+
+    try {
+      const contentPayload = buildMessageContent(messageType, content, Boolean(params.json))
+      const response = await this.client.requestOrThrow<Record<string, unknown>>(
+        'PUT',
+        `/open-apis/im/v1/messages/${encodeURIComponent(messageId)}`,
+        {
+          msg_type: messageType,
+          content: contentPayload,
+        },
+      )
+
+      return {
+        messageId,
+        raw: response,
+      }
+    } catch (error) {
+      throw wrapDomainError('编辑飞书消息失败', error)
+    }
+  }
+
+  async deleteMessage(params: LarkDeleteMessageParams): Promise<LarkDeleteMessageResult> {
+    const messageId = ensureNonEmptyString(params.messageId, 'messageId')
+
+    try {
+      const response = await this.client.requestOrThrow<Record<string, unknown>>(
+        'DELETE',
+        `/open-apis/im/v1/messages/${encodeURIComponent(messageId)}`,
+      )
+
+      return {
+        messageId,
+        raw: response,
+      }
+    } catch (error) {
+      throw wrapDomainError('撤回飞书消息失败', error)
+    }
+  }
+
   async addMessageReaction(params: LarkAddMessageReactionParams): Promise<LarkAddMessageReactionResult> {
     const messageId = ensureNonEmptyString(params.messageId, 'messageId')
     const emojiType = ensureNonEmptyString(params.emojiType, 'emojiType')
@@ -143,6 +198,56 @@ export class LarkMessagesService {
     }
   }
 
+  async listMessages(params: LarkListMessagesParams): Promise<LarkListMessagesResult> {
+    const chatId = ensureNonEmptyString(params.chatId, 'chatId')
+    const query: Record<string, string> = {
+      container_id_type: 'chat',
+      container_id: chatId,
+    }
+    if (params.startTime) query.start_time = params.startTime
+    if (params.endTime) query.end_time = params.endTime
+    if (params.sortType) query.sort_type = params.sortType
+    if (params.pageSize) query.page_size = String(Math.min(params.pageSize, 50))
+    if (params.pageToken) query.page_token = params.pageToken
+
+    try {
+      const response = await this.client.requestOrThrow<Record<string, unknown>>(
+        'GET',
+        '/open-apis/im/v1/messages',
+        undefined,
+        query,
+      )
+      const data = (response.data ?? {}) as Record<string, unknown>
+      const rawItems = (data.items as Record<string, unknown>[] | undefined) ?? []
+      return {
+        items: rawItems.map(toMessageSummary),
+        hasMore: Boolean(data.has_more),
+        nextPageToken: data.page_token as string | undefined,
+        raw: response,
+      }
+    } catch (error) {
+      throw wrapDomainError('列出飞书消息失败', error)
+    }
+  }
+
+  async deleteMessageReaction(params: LarkDeleteMessageReactionParams): Promise<LarkDeleteMessageReactionResult> {
+    const messageId = ensureNonEmptyString(params.messageId, 'messageId')
+    const reactionId = ensureNonEmptyString(params.reactionId, 'reactionId')
+
+    try {
+      const response = await this.client.requestOrThrow<Record<string, unknown>>(
+        'DELETE',
+        `/open-apis/im/v1/messages/${encodeURIComponent(messageId)}/reactions/${encodeURIComponent(reactionId)}`,
+      )
+      return {
+        reactionId,
+        raw: response,
+      }
+    } catch (error) {
+      throw wrapDomainError('删除飞书消息表情失败', error)
+    }
+  }
+
   async rawRequest(params: LarkRawRequestParams): Promise<unknown> {
     const method = normalizeMethod(params.method)
     if (!method) {
@@ -166,5 +271,16 @@ export class LarkMessagesService {
     } catch (error) {
       throw wrapDomainError(`调用飞书 OpenAPI 失败: ${method} ${normalizeOpenApiPath(params.path)}`, error)
     }
+  }
+}
+
+function toMessageSummary(item: Record<string, unknown>): LarkMessageSummary {
+  const sender = item.sender as Record<string, unknown> | undefined
+  return {
+    messageId: (item.message_id as string) ?? '',
+    msgType: item.msg_type as string | undefined,
+    content: item.body ? ((item.body as Record<string, unknown>).content as string | undefined) : undefined,
+    createTime: item.create_time as string | undefined,
+    senderId: sender?.id as string | undefined,
   }
 }

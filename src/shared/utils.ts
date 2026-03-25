@@ -81,7 +81,7 @@ export function normalizeOpenApiPath(apiPath: string) {
 
 export function formatJson(value: unknown, maxLength: number) {
   const text = JSON.stringify(value, null, 2) || String(value)
-  if (text.length <= maxLength) {
+  if (!maxLength || text.length <= maxLength) {
     return `\`\`\`json\n${text}\n\`\`\``
   }
   return `\`\`\`json\n${text.slice(0, maxLength)}\n...\n\`\`\``
@@ -165,8 +165,8 @@ export function expectToolString(value: unknown, key: string) {
   throw createValidationError(`${key} must be a non-empty string.`, { key })
 }
 
-export function formatToolJson(value: unknown, maxLength: number) {
+export function formatToolJson(value: unknown, maxLength: number | undefined) {
   const text = JSON.stringify(value, null, 2) || String(value)
-  if (text.length <= maxLength) return text
+  if (!maxLength || text.length <= maxLength) return text
   return `${text.slice(0, maxLength)}\n...`
 }

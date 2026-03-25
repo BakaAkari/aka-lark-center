@@ -4,6 +4,10 @@ import {
   wrapDomainError,
 } from '../../shared/errors.js'
 import type {
+  LarkCreateWikiNodeParams,
+  LarkCreateWikiNodeResult,
+  LarkDeleteWikiNodeParams,
+  LarkDeleteWikiNodeResult,
   LarkGetWikiNodeParams,
   LarkGetWikiNodeResult,
   LarkListWikiNodesParams,
@@ -108,6 +112,55 @@ export class LarkWikiService {
       }
     } catch (error) {
       throw wrapDomainError('获取知识库子节点列表失败', error)
+    }
+  }
+  async createNode(params: LarkCreateWikiNodeParams): Promise<LarkCreateWikiNodeResult> {
+    const spaceId = ensureNonEmptyString(params.spaceId, 'spaceId')
+    const title = ensureNonEmptyString(params.title, 'title')
+
+    const body: Record<string, unknown> = {
+      obj_type: params.objType ?? 'docx',
+      title,
+    }
+    if (params.parentNodeToken) body.parent_node_token = params.parentNodeToken
+
+    try {
+      const response = await this.client.requestOrThrow<Record<string, unknown>>(
+        'POST',
+        `/open-apis/wiki/v2/spaces/${encodeURIComponent(spaceId)}/nodes`,
+        body,
+      )
+      const data = (response.data ?? {}) as Record<string, unknown>
+      const node = (data.node ?? {}) as Record<string, unknown>
+      return {
+        nodeToken: (node.node_token as string) ?? '',
+        objToken: node.obj_token as string | undefined,
+        objType: node.obj_type as string | undefined,
+        title: node.title as string | undefined,
+        raw: response,
+      }
+    } catch (error) {
+      throw wrapDomainError('创建知识库节点失败', error)
+    }
+  }
+
+  async deleteNode(params: LarkDeleteWikiNodeParams): Promise<LarkDeleteWikiNodeResult> {
+    const spaceId = ensureNonEmptyString(params.spaceId, 'spaceId')
+    const nodeToken = ensureNonEmptyString(params.nodeToken, 'nodeToken')
+
+    try {
+      const response = await this.client.requestOrThrow<Record<string, unknown>>(
+        'DELETE',
+        `/open-apis/wiki/v2/spaces/${encodeURIComponent(spaceId)}/nodes/${encodeURIComponent(nodeToken)}`,
+      )
+
+      return {
+        spaceId,
+        nodeToken,
+        raw: response,
+      }
+    } catch (error) {
+      throw wrapDomainError('删除知识库节点失败', error)
     }
   }
 }

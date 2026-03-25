@@ -173,7 +173,7 @@ export function formatReadDocumentContentResult(result: ReadDocumentContentPrese
 
   const content = result.content || '(文档当前为空)'
   const text = `${header}\n\n${content}`
-  if (text.length <= output.maxResponseLength) {
+  if (!output.maxResponseLength || text.length <= output.maxResponseLength) {
     return text
   }
 
@@ -200,7 +200,7 @@ export function formatReadFileContentResult(result: ReadFileContentPresentation,
 
   const content = result.text || '(文件当前为空)'
   const text = `${header}\n\n${content}`
-  if (text.length <= output.maxResponseLength) {
+  if (!output.maxResponseLength || text.length <= output.maxResponseLength) {
     return text
   }
 
@@ -223,7 +223,7 @@ export function formatReadMessageAttachmentResult(result: ReadMessageAttachmentP
 
   const content = result.text || '(附件当前为空)'
   const text = `${header}\n\n${content}`
-  if (text.length <= output.maxResponseLength) {
+  if (!output.maxResponseLength || text.length <= output.maxResponseLength) {
     return text
   }
 
@@ -382,6 +382,6 @@ export function formatAddMessageReactionResult(result: AddMessageReactionPresent
 }
 
 function truncateBlock(text: string, maxLength: number) {
-  if (text.length <= maxLength) return text
+  if (!maxLength || text.length <= maxLength) return text
   return `${text.slice(0, Math.max(maxLength - 4, 0))}\n...`
 }

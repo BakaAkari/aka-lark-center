@@ -9,9 +9,14 @@ import type {
   LarkAppendDocumentContentResult,
   LarkCreateDocumentParams,
   LarkCreateDocumentResult,
+  LarkDeleteDocumentBlocksParams,
+  LarkDeleteDocumentBlocksResult,
   LarkDocxBlock,
   LarkDocxBlockListData,
+  LarkDocxBlockSummary,
   LarkDocxConvertData,
+  LarkReadDocumentBlocksParams,
+  LarkReadDocumentBlocksResult,
 } from '../../shared/types.js'
 
 export class LarkDocsService {
@@ -126,6 +131,71 @@ export class LarkDocsService {
       throw wrapDomainError('追加飞书文档内容失败', error)
     }
   }
+  async readDocumentBlocks(params: LarkReadDocumentBlocksParams): Promise<LarkReadDocumentBlocksResult> {
+    const documentId = ensureNonEmptyString(params.documentId, 'documentId')
+    const pageSize = typeof params.pageSize === 'number' && params.pageSize > 0
+      ? Math.min(Math.floor(params.pageSize), 200)
+      : 50
+
+    try {
+      const response = await this.client.requestOrThrow<LarkDocxBlockListData>(
+        'GET',
+        `/open-apis/docx/v1/documents/${encodeURIComponent(documentId)}/blocks`,
+        undefined,
+        {
+          page_size: String(pageSize),
+          page_token: params.pageToken?.trim() || undefined,
+        },
+      )
+
+      const items = (response.data?.items ?? []).map(toBlockSummary)
+      return {
+        documentId,
+        items,
+        hasMore: Boolean(response.data?.has_more),
+        nextPageToken: typeof response.data?.page_token === 'string' && response.data.page_token
+          ? response.data.page_token
+          : undefined,
+        raw: response,
+      }
+    } catch (error) {
+      throw wrapDomainError('获取飞书文档块列表失败', error)
+    }
+  }
+
+  async deleteDocumentBlocks(params: LarkDeleteDocumentBlocksParams): Promise<LarkDeleteDocumentBlocksResult> {
+    const documentId = ensureNonEmptyString(params.documentId, 'documentId')
+    const parentBlockId = ensureNonEmptyString(params.parentBlockId, 'parentBlockId')
+
+    if (typeof params.startIndex !== 'number' || params.startIndex < 0) {
+      throw createValidationError('startIndex 必须是非负整数。')
+    }
+    if (typeof params.endIndex !== 'number' || params.endIndex <= params.startIndex) {
+      throw createValidationError('endIndex 必须大于 startIndex。')
+    }
+
+    try {
+      const response = await this.client.requestOrThrow<Record<string, unknown>>(
+        'DELETE',
+        `/open-apis/docx/v1/documents/${encodeURIComponent(documentId)}/blocks/${encodeURIComponent(parentBlockId)}/children/batch_delete`,
+        {
+          start_index: params.startIndex,
+          end_index: params.endIndex,
+        },
+      )
+
+      return {
+        documentId,
+        parentBlockId,
+        startIndex: params.startIndex,
+        endIndex: params.endIndex,
+        raw: response,
+      }
+    } catch (error) {
+      throw wrapDomainError('删除飞书文档块失败', error)
+    }
+  }
+
   private async convertDocumentContent(content: string, contentType: DocumentContentType) {
     const convertedContent = normalizeDocumentContent(content, contentType)
     const response = await this.client.requestOrThrow<LarkDocxConvertData>(
@@ -151,5 +221,26 @@ export class LarkDocsService {
     }
 
     return rootBlock.block_id
+  }
+}
+
+function toBlockSummary(block: LarkDocxBlock): LarkDocxBlockSummary {
+  // Extract plain text from text block elements if present
+  let text: string | undefined
+  const textContent = block.text as { elements?: Array<{ text_run?: { content?: string } }> } | undefined
+  if (textContent?.elements) {
+    const parts = textContent.elements
+      .map(el => el.text_run?.content ?? '')
+      .filter(Boolean)
+    if (parts.length) text = parts.join('')
+  }
+
+  return {
+    blockId: block.block_id ?? '',
+    parentId: typeof block.parent_id === 'string' ? block.parent_id : undefined,
+    blockType: typeof block.block_type === 'number' ? block.block_type : 0,
+    children: Array.isArray(block.children) ? block.children as string[] : undefined,
+    text,
+    raw: block,
   }
 }

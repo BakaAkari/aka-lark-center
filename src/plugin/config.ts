@@ -19,7 +19,7 @@ export const Config: Schema<PluginConfig> = Schema.intersect([
       Schema.const('union_id').description('用户 Union ID'),
       Schema.const('email').description('用户邮箱'),
     ] as const).default('chat_id' as ReceiveIdType).description('消息发送默认 receive_id_type'),
-    maxResponseLength: Schema.number().min(500).max(12000).default(4000).description('命令输出最大长度'),
+    maxResponseLength: Schema.number().min(0).default(0).description('命令输出最大长度，设为 0 表示不限制。'),
     autoTransferOwnershipToRequester: Schema.boolean().default(false).description('创建文档后是否自动把文档 owner 转交给发起命令的飞书用户。'),
     retainedBotPermissionAfterOwnershipTransfer: Schema.union([
       Schema.const('view').description('保留只读权限'),
@@ -35,6 +35,7 @@ export const Config: Schema<PluginConfig> = Schema.intersect([
   Schema.object({
     chatlunaEnabled: Schema.boolean().default(false).description('是否启用内置 ChatLuna 工具桥接。开启后会把飞书工具注册到 ChatLuna，关闭时自动卸载。'),
     chatlunaContextInjectionEnabled: Schema.boolean().default(true).description('是否在 ChatLuna 对话前自动识别飞书文档链接并注入文档上下文。'),
-    chatlunaContextMaxChars: Schema.number().min(500).max(20000).default(4000).description('自动注入到 ChatLuna 上下文中的飞书文档最大字符数。'),
+    chatlunaContextMaxChars: Schema.number().min(0).default(0).description('自动注入到 ChatLuna 上下文中的飞书文档链接内容最大字符数，设为 0 表示不限制。'),
+    chatlunaAttachmentMaxChars: Schema.number().min(0).default(0).description('自动注入到 ChatLuna 上下文中的飞书文件附件内容最大字符数，设为 0 表示不限制。'),
   }).description('LLM 集成'),
 ])
