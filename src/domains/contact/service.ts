@@ -31,8 +31,10 @@ export class LarkContactService {
   }
 
   async searchUser(params: LarkContactSearchUserParams): Promise<LarkContactSearchUserResult> {
+    // find_by_department lists users under a department; root department ID is '0'
+    const departmentId = params.departmentId ?? '0'
     const query: Record<string, string> = {
-      query: params.query,
+      department_id: departmentId,
       user_id_type: 'open_id',
     }
     if (params.pageSize) query.page_size = String(Math.min(params.pageSize, 200))

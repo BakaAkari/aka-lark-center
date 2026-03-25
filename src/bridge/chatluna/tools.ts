@@ -479,7 +479,7 @@ function createChatLunaToolInstance(
           }
           case 'lark_contact_search_user': {
             const result = await center.searchContactUser({
-              query: expectToolString(input.query, 'query'),
+              departmentId: typeof input.departmentId === 'string' ? input.departmentId : undefined,
               pageSize: typeof input.pageSize === 'number' ? input.pageSize : undefined,
               pageToken: typeof input.pageToken === 'string' ? input.pageToken : undefined,
             })

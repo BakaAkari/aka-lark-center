@@ -869,7 +869,7 @@ export interface LarkContactGetUserResult {
 }
 
 export interface LarkContactSearchUserParams {
-  query: string
+  departmentId?: string
   pageSize?: number
   pageToken?: string
 }

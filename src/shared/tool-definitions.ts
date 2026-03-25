@@ -982,15 +982,15 @@ export const LARK_TOOL_DEFINITIONS: LarkToolDefinition[] = [
   },
   {
     name: 'lark_contact_search_user',
-    description: 'Search for Feishu users by keyword.',
-    usage: 'Use this to find users by name or other attributes. Returns a paginated list of matching user profiles.',
+    description: 'List Feishu users under a department.',
+    usage: 'Use this to list users in a specific department. Omit departmentId to list users in the root department (ID "0"). Returns a paginated list of user profiles.',
     riskLevel: 'low',
     inputSchema: {
       type: 'object',
       properties: {
-        query: {
+        departmentId: {
           type: 'string',
-          description: 'Search keyword (name, email, etc.).',
+          description: 'Department ID to list users from. Defaults to "0" (root department) if omitted.',
         },
         pageSize: {
           type: 'number',
@@ -1001,7 +1001,7 @@ export const LARK_TOOL_DEFINITIONS: LarkToolDefinition[] = [
           description: 'Pagination token from a previous response.',
         },
       },
-      required: ['query'],
+      required: [],
     },
   },
   // ── Wiki additions ─────────────────────────────────────────────────────────
