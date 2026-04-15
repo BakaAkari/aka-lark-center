@@ -168,9 +168,23 @@ function looksLikeProbableDocxToken(input: string) {
   return /^[A-Za-z0-9_-]{8,}$/.test(input)
 }
 
+const LARK_HOST_SUFFIXES = [
+  '.feishu.cn',
+  '.larksuite.com',
+  '.larkoffice.com',
+  '.feishu.net',
+]
+
+function isLarkHost(hostname: string): boolean {
+  const lower = hostname.toLowerCase()
+  return LARK_HOST_SUFFIXES.some(suffix => lower === suffix.slice(1) || lower.endsWith(suffix))
+}
+
 function parseLarkDocumentReferenceFromUrl(input: string) {
   try {
     const url = new URL(input)
+    if (!isLarkHost(url.hostname)) return null
+
     const segments = url.pathname.split('/').filter(Boolean)
     for (let index = 0; index < segments.length; index += 1) {
       const segment = segments[index]

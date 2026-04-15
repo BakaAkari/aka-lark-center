@@ -1,6 +1,6 @@
 {
   "name": "koishi-plugin-aka-lark-center",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Koishi gateway for Lark/Feishu OpenAPI with chat tools and raw API access.",
   "license": "MIT",
   "repository": {
