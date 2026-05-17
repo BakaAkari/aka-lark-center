@@ -29,13 +29,12 @@
 - 已预留但未实现：`bitable` 一等 API 仍是骨架，暂不建议把它视为可用能力
 - 当前阶段重点：继续优化 search/wiki 的交互层输出，完善面向 ChatLuna 的资源上下文注入链路，随后推进飞书项目接入方案设计
 
-更细的开发现状和阶段记录见：
+更细的当前状态见：
 
-- [`docs/lark-center-doc/architecture.md`](../../docs/lark-center-doc/architecture.md)
-- [`docs/lark-center-doc/context-injection.md`](../../docs/lark-center-doc/context-injection.md)
 - [`docs/lark-center-doc/current-status.md`](../../docs/lark-center-doc/current-status.md)
-- [`docs/lark-center-doc/knowledge-center-plan.md`](../../docs/lark-center-doc/knowledge-center-plan.md)
-- [`docs/lark-center-doc/phase-plan.md`](../../docs/lark-center-doc/phase-plan.md)
+- [`docs/active-documents.md`](../../docs/active-documents.md)
+
+历史架构、上下文注入、知识中心、阶段计划和能力汇报已按插件归档到 [`docs/archive/lark-center/`](../../docs/archive/lark-center/) 与 [`docs/archive/lark/`](../../docs/archive/lark/)，除非明确恢复历史线，否则不作为当前实现需求。
 
 ## Features
 
