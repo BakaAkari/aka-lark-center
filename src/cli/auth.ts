@@ -16,10 +16,16 @@ export interface DeviceFlowInitResult {
   interval: number
 }
 
+export interface UserAuthManagerOptions {
+  appId: string
+  appSecret: string
+}
+
 export class UserAuthManager {
   constructor(
     private baseDir: string,
     private binaryPath: string,
+    private options: UserAuthManagerOptions,
   ) {}
 
   private userConfigDir(userId: string): string {
@@ -29,6 +35,33 @@ export class UserAuthManager {
   async ensureUserConfigDir(userId: string): Promise<string> {
     const dir = this.userConfigDir(userId)
     await mkdir(dir, { recursive: true })
+    return dir
+  }
+
+  private async ensureCliConfig(userId: string): Promise<string> {
+    const dir = await this.ensureUserConfigDir(userId)
+    const result = await runCli({
+      binaryPath: this.binaryPath,
+      args: [
+        'config',
+        'init',
+        '--app-id',
+        this.options.appId,
+        '--app-secret-stdin',
+        '--brand',
+        'feishu',
+      ],
+      env: { HOME: dir },
+      stdin: `${this.options.appSecret}\n`,
+      timeoutMs: 30000,
+    })
+    if (result.exitCode !== 0) {
+      throw createCliExecutionError(
+        `CLI config init failed: ${result.stderr || result.stdout}`,
+        result.exitCode,
+        result.stderr,
+      )
+    }
     return dir
   }
 
@@ -54,7 +87,7 @@ export class UserAuthManager {
   }
 
   async initDeviceFlow(userId: string): Promise<DeviceFlowInitResult> {
-    const dir = await this.ensureUserConfigDir(userId)
+    const dir = await this.ensureCliConfig(userId)
     const result = await runCli({
       binaryPath: this.binaryPath,
       args: ['auth', 'login', '--no-wait', '--json'],

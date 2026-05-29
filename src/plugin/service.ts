@@ -26,7 +26,10 @@ export class LarkCenter extends Service {
     super(ctx, PLUGIN_NAME)
     const baseDir = config.larkCliConfigDir || ctx.baseDir
     this.binaryPath = resolveCliBinary(baseDir)
-    this.auth = new UserAuthManager(baseDir, this.binaryPath)
+    this.auth = new UserAuthManager(baseDir, this.binaryPath, {
+      appId: config.appId,
+      appSecret: config.appSecret,
+    })
     this.runner = new SafeCliRunner(ctx, this.binaryPath)
     this.catalog = new ToolCatalogManager(ctx)
   }

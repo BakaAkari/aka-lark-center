@@ -20,6 +20,7 @@ export interface RunCliOptions {
   binaryPath: string
   cwd?: string
   env?: Record<string, string | undefined>
+  stdin?: string
   timeoutMs?: number
 }
 
@@ -30,7 +31,7 @@ export function runCli(options: RunCliOptions): Promise<CliResult> {
     const child = spawn(options.binaryPath, options.args, {
       cwd: options.cwd,
       env: { ...process.env, ...options.env },
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: options.stdin !== undefined ? ['pipe', 'pipe', 'pipe'] : ['ignore', 'pipe', 'pipe'],
     })
 
     let stdout = ''
@@ -44,6 +45,10 @@ export function runCli(options: RunCliOptions): Promise<CliResult> {
     child.stderr?.on('data', (chunk: Buffer) => {
       stderr += chunk.toString('utf-8')
     })
+
+    if (options.stdin !== undefined) {
+      child.stdin?.end(options.stdin)
+    }
 
     const timer = options.timeoutMs
       ? setTimeout(() => {

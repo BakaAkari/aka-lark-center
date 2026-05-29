@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0-beta.4 (2026-05-29)
+
+### Fixed
+
+- 修复首次执行 `lark.auth.bind` 时用户独立 HOME 尚未初始化，导致 `auth login --no-wait --json` 返回 `not configured` 的问题。
+- 在个人绑定流程前自动执行 `lark-cli config init --app-id ... --app-secret-stdin --brand feishu`，并通过 stdin 传入 App Secret，避免 secret 进入 argv。
+- 为 CLI 执行器新增 stdin 支持，用于安全调用需要标准输入的 lark-cli 命令。
+
 ## 0.6.0-beta.3 (2026-05-28)
 
 ### Fixed
